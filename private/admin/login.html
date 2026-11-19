@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Administrator Sign In — RetroMarket</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/marketplace.css" />
+  <link rel="stylesheet" href="__ADMIN_BASE__/assets/admin.css" />
+  <script src="__ADMIN_BASE__/assets/admin-login.js" defer></script>
+</head>
+<body data-admin-base="__ADMIN_BASE__">
+  <div class="page-wrapper">
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span><strong>RetroMarket Private Administration</strong></span>
+      </div>
+      <div class="utility-right">
+        <a href="/index.html" class="utility-link">Return to Public Storefront</a>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="brand-block">
+        <img src="/assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Authorized Administrator Access Only</span>
+        </span>
+      </div>
+    </header>
+
+    <main class="admin-login-shell">
+      <section class="panel section-gap" aria-labelledby="admin-signin-heading">
+        <div class="panel-header panel-header-dark">
+          <h1 id="admin-signin-heading" class="panel-title">Administrator Sign In</h1>
+          <span class="panel-header-sub">Server-Authenticated Session</span>
+        </div>
+
+        <form id="admin-login-form" novalidate>
+          <table class="form-table">
+            <tbody>
+              <tr>
+                <th scope="row"><label for="admin-email">Email Address <span class="form-required">*</span></label></th>
+                <td>
+                  <input
+                    id="admin-email"
+                    name="email"
+                    type="email"
+                    class="form-input"
+                    autocomplete="username"
+                    required
+                  />
+                </td>
+              </tr>
+              <tr>
+                <th scope="row"><label for="admin-password">Password <span class="form-required">*</span></label></th>
+                <td>
+                  <input
+                    id="admin-password"
+                    name="password"
+                    type="password"
+                    class="form-input"
+                    autocomplete="current-password"
+                    required
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="panel-footer">
+            <button type="button" id="toggle-forgot-password-btn" class="admin-link-btn">Forgot Password?</button>
+            <button type="submit" id="admin-signin-btn" class="btn btn-primary">Sign In &raquo;</button>
+          </div>
+        </form>
+
+        <div class="panel-body">
+          <div id="admin-login-message" class="inline-message" role="alert" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section id="admin-forgot-panel" class="panel is-hidden" aria-labelledby="forgot-heading">
+        <div class="panel-header">
+          <span id="forgot-heading">Administrator Password Recovery</span>
+          <span class="panel-header-sub">Single-use expiring reset link</span>
+        </div>
+        <form id="admin-forgot-form" novalidate>
+          <table class="form-table">
+            <tbody>
+              <tr>
+                <th scope="row"><label for="forgot-email">Admin Email <span class="form-required">*</span></label></th>
+                <td>
+                  <input
+                    id="forgot-email"
+                    name="email"
+                    type="email"
+                    class="form-input"
+                    autocomplete="email"
+                    required
+                  />
+                  <span class="form-hint">If the email matches an active administrator account and SMTP is configured, a single-use reset link will be sent.</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="panel-footer">
+            <span class="text-muted">Reset links expire automatically and invalidate prior sessions.</span>
+            <button type="submit" id="admin-forgot-submit-btn" class="btn btn-primary">Send Reset Link</button>
+          </div>
+        </form>
+        <div class="panel-body">
+          <div id="admin-forgot-message" class="inline-message" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-meta">
+        RetroMarket Administration Portal &middot; Unauthorized access attempts are logged.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

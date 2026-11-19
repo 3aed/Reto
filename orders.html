@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guest Order Lookup &amp; Confirmation — RetroMarket</title>
+  <meta name="description" content="Look up your RetroMarket guest order confirmation using your Order Reference ID and checkout email address." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/marketplace.css" />
+  <script src="js/products.js" defer></script>
+  <script src="js/cart.js" defer></script>
+  <script src="js/app.js" defer></script>
+  <script src="js/checkout.js" defer></script>
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- Top Utility Bar -->
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span>Welcome, <strong>Guest Visitor</strong></span>
+        <span class="utility-sep">|</span>
+        <span id="current-date-display"></span>
+      </div>
+      <div class="utility-right">
+        <a href="orders.html" class="utility-link">Order Lookup</a>
+        <span class="utility-sep">|</span>
+        <a href="cart.html" class="utility-cart-link">
+          <img src="assets/icons/cart.svg" alt="" width="14" height="14" />
+          <span>Shopping Cart (<span class="js-cart-count num">0</span>)</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="site-header">
+      <a href="index.html" class="brand-block">
+        <img src="assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Classic Online Buying &amp; Selling Directory &mdash; Est. 2001</span>
+        </span>
+      </a>
+      <form id="header-search-form" class="header-search" action="marketplace.html" method="get" role="search">
+        <label for="header-search-input" class="sr-only">Search listings</label>
+        <input id="header-search-input" type="text" name="q" class="header-search-input" placeholder="Search products, sellers, IDs..." />
+        <label for="header-search-category" class="sr-only">Category</label>
+        <select id="header-search-category" name="cat" class="header-search-select">
+          <option value="all">All Categories</option>
+        </select>
+        <button type="submit" class="header-search-btn">Search</button>
+      </form>
+    </header>
+
+    <!-- Primary Public Visitor Navigation -->
+    <nav class="main-nav" aria-label="Primary Navigation">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
+        <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
+        <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
+        <li class="nav-item"><a href="cart.html" class="nav-link">Shopping Cart (<span class="js-cart-count num">0</span>)</a></li>
+        <li class="nav-item"><a href="contact.html" class="nav-link">Contact</a></li>
+      </ul>
+    </nav>
+
+    <!-- Breadcrumb Strip -->
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-trail">
+        You are here: <a href="index.html">RetroMarket</a> &raquo; <span class="breadcrumb-current">Guest Order Lookup</span>
+      </div>
+      <div class="nowrap"><a href="marketplace.html">&laquo; Back to Marketplace</a></div>
+    </div>
+
+    <!-- Two-Column Layout -->
+    <div class="layout-body">
+      <aside class="sidebar" aria-label="Guest Order Sidebar">
+        <section class="panel">
+          <div class="panel-header"><span>Guest Order Tools</span></div>
+          <ul class="sidebar-list">
+            <li><a href="orders.html" class="sidebar-cat-link"><img src="assets/icons/folder.svg" alt="" width="14" height="14" /><span>Order Lookup</span></a></li>
+            <li><a href="cart.html" class="sidebar-cat-link"><img src="assets/icons/cart.svg" alt="" width="14" height="14" /><span>Shopping Cart</span></a><span class="sidebar-count js-cart-count">0</span></li>
+            <li><a href="checkout.html" class="sidebar-cat-link"><span>Guest Checkout</span></a></li>
+            <li><a href="payment.html" class="sidebar-cat-link"><span>Order Payment</span></a></li>
+            <li><a href="contact.html" class="sidebar-cat-link"><span>Contact a Seller</span></a></li>
+          </ul>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Privacy &amp; Lookup</span></div>
+          <div class="panel-body">
+            <p class="text-muted">
+              RetroMarket operates as a guest-checkout marketplace. To protect your order details, both your Order Reference ID and the Email Address used at checkout are required to retrieve an order.
+            </p>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <!-- Guest Order Reference + Email Lookup Form -->
+        <section class="panel section-gap" aria-labelledby="lookup-heading">
+          <div class="panel-header panel-header-dark">
+            <h1 id="lookup-heading" class="panel-title">Look Up Your Guest Order</h1>
+            <span class="panel-header-sub">Order ID &amp; Checkout Email Required</span>
+          </div>
+          <form id="guest-order-lookup-form" class="filter-bar" novalidate>
+            <div class="filter-group">
+              <label for="guest-order-lookup-input"><strong>Order Reference ID:</strong></label>
+              <input
+                id="guest-order-lookup-input"
+                type="text"
+                class="filter-input"
+                placeholder="RM-2026-XXXXXXXX"
+                required
+              />
+            </div>
+            <div class="filter-group">
+              <label for="guest-order-email-input"><strong>Checkout Email:</strong></label>
+              <input
+                id="guest-order-email-input"
+                type="email"
+                class="filter-input"
+                placeholder="buyer@example.com"
+                required
+              />
+            </div>
+            <div class="filter-group">
+              <button type="submit" class="btn btn-primary btn-compact">Find Order</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Dynamic Lookup Result Receipt -->
+        <div id="guest-order-lookup-result" class="is-hidden section-gap"></div>
+
+        <!-- Helpful Guidance Panel -->
+        <section class="panel">
+          <div class="panel-header">
+            <span>Need Help With an Order?</span>
+            <a href="contact.html">Contact Support &raquo;</a>
+          </div>
+          <div class="panel-body">
+            <p class="text-muted">
+              Enter your Order Reference ID (for example, <code>RM-2026-A1B2C3D4</code>) together with the email address you entered during guest checkout to check live order and payment status or proceed to payment.
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Shared Public Footer -->
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="index.html">Home</a> |
+        <a href="marketplace.html">Marketplace</a> |
+        <a href="categories.html">Categories</a> |
+        <a href="cart.html">Shopping Cart</a> |
+        <a href="checkout.html">Checkout</a> |
+        <a href="payment.html">Payment</a> |
+        <a href="orders.html">Order Lookup</a> |
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-meta">
+        Copyright &copy; 2001&ndash;2026 RetroMarket Online Directory. All rights reserved.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

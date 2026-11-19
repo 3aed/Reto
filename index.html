@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RetroMarket — Classic Online Buying &amp; Selling Directory</title>
+  <meta name="description" content="RetroMarket is a classic early-2000s online marketplace for browsing products, categories, guest checkout, and direct seller inquiries." />
+  <meta property="og:title" content="RetroMarket — Classic Online Buying &amp; Selling Directory" />
+  <meta property="og:description" content="RetroMarket is a classic early-2000s online marketplace for browsing products, categories, guest checkout, and direct seller inquiries." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/marketplace.css" />
+  <script src="js/products.js" defer></script>
+  <script src="js/cart.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- Top Utility Bar -->
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span>Welcome, <strong>Guest Visitor</strong></span>
+        <span class="utility-sep">|</span>
+        <span id="current-date-display"></span>
+      </div>
+      <div class="utility-right">
+        <a href="orders.html" class="utility-link">Order Lookup</a>
+        <span class="utility-sep">|</span>
+        <a href="cart.html" class="utility-cart-link">
+          <img src="assets/icons/cart.svg" alt="" width="14" height="14" />
+          <span>Shopping Cart (<span class="js-cart-count num">0</span>)</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="site-header">
+      <a href="index.html" class="brand-block">
+        <img src="assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Classic Online Buying &amp; Selling Directory</span>
+        </span>
+      </a>
+      <form id="header-search-form" class="header-search" action="marketplace.html" method="get" role="search">
+        <label for="header-search-input" class="sr-only">Search listings</label>
+        <input id="header-search-input" type="text" name="q" class="header-search-input" placeholder="Search products, sellers, IDs..." />
+        <label for="header-search-category" class="sr-only">Category</label>
+        <select id="header-search-category" name="cat" class="header-search-select">
+          <option value="all">All Categories</option>
+        </select>
+        <button type="submit" class="header-search-btn">Search</button>
+      </form>
+    </header>
+
+    <!-- Primary Public Visitor Navigation -->
+    <nav class="main-nav" aria-label="Primary Navigation">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="index.html" class="nav-link active" aria-current="page">Home</a></li>
+        <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
+        <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
+        <li class="nav-item"><a href="cart.html" class="nav-link">Shopping Cart (<span class="js-cart-count num">0</span>)</a></li>
+        <li class="nav-item"><a href="contact.html" class="nav-link">Contact</a></li>
+      </ul>
+    </nav>
+
+    <!-- Breadcrumb Strip -->
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-trail">
+        You are here: <span class="breadcrumb-current">RetroMarket Home</span>
+      </div>
+      <div class="nowrap">
+        <a href="marketplace.html">Browse All Listings &raquo;</a>
+      </div>
+    </div>
+
+    <!-- Cart Feedback Strip -->
+    <div id="cart-feedback-bar" class="cart-feedback-bar" role="status" aria-live="polite">
+      <div>
+        <strong id="cart-feedback-text">Item added to cart.</strong>
+        &nbsp;<a href="cart.html">View Shopping Cart &raquo;</a>
+      </div>
+      <button id="cart-feedback-dismiss" type="button" class="btn btn-compact">Dismiss</button>
+    </div>
+
+    <!-- Main Two-Column Directory Layout -->
+    <div class="layout-body">
+      <aside class="sidebar" aria-label="Marketplace Directory Sidebar">
+        <section class="panel">
+          <div class="panel-header"><span>Categories</span></div>
+          <ul class="sidebar-list" data-dynamic-sidebar-categories>
+            <li class="text-muted"><span class="sidebar-cat-link">Loading categories...</span></li>
+          </ul>
+          <div class="panel-footer">
+            <a href="categories.html">View All Categories &raquo;</a>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Directory Summary</span></div>
+          <table class="sidebar-stat-table">
+            <tbody>
+              <tr>
+                <td class="sidebar-stat-label">Active Listings</td>
+                <td class="sidebar-stat-val num" data-category-count="all">0</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label">Categories</td>
+                <td class="sidebar-stat-val num" data-total-categories>0</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label">Active Sellers</td>
+                <td class="sidebar-stat-val num" data-active-sellers-count>0</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Guest Shopping</span></div>
+          <div class="panel-body">
+            <p class="text-muted" data-guest-notice>
+              Shop and check out as a guest without creating an account.
+            </p>
+            <ul class="sidebar-list">
+              <li><a href="cart.html" class="sidebar-cat-link"><span>Shopping Cart</span></a><span class="sidebar-count js-cart-count">0</span></li>
+              <li><a href="orders.html" class="sidebar-cat-link"><span>Guest Order Lookup</span></a></li>
+              <li><a href="contact.html" class="sidebar-cat-link"><span>Contact a Seller</span></a></li>
+            </ul>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <!-- Featured Products -->
+        <section class="panel section-gap" aria-labelledby="featured-heading">
+          <div class="panel-header panel-header-dark">
+            <h1 id="featured-heading" class="panel-title">Featured Marketplace Listings</h1>
+            <a href="marketplace.html">View Full Catalog &raquo;</a>
+          </div>
+          <div id="home-featured-grid" class="product-grid">
+            <div class="panel-body text-muted">Loading featured listings...</div>
+          </div>
+        </section>
+
+        <!-- Popular Categories -->
+        <section class="panel section-gap" aria-labelledby="popular-categories-heading">
+          <div class="panel-header">
+            <h2 id="popular-categories-heading" class="panel-title">Browse by Category</h2>
+            <a href="categories.html">All Categories &raquo;</a>
+          </div>
+          <div id="home-popular-categories" class="category-grid">
+            <div class="panel-body text-muted">Loading categories...</div>
+          </div>
+        </section>
+
+        <!-- Latest Listings Table -->
+        <section class="panel section-gap" aria-labelledby="latest-listings-heading">
+          <div class="panel-header">
+            <h2 id="latest-listings-heading" class="panel-title">Latest Listings</h2>
+            <div class="filter-group">
+              <label for="home-latest-category-filter" class="sr-only">Filter latest listings by category</label>
+              <select id="home-latest-category-filter" class="filter-select">
+                <option value="all">All Categories</option>
+              </select>
+            </div>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Product Title</th>
+                <th scope="col">Category</th>
+                <th scope="col">Seller</th>
+                <th scope="col">Condition</th>
+                <th scope="col" class="col-right">Price</th>
+                <th scope="col">Listed</th>
+              </tr>
+            </thead>
+            <tbody id="home-latest-listings-body">
+              <tr>
+                <td colspan="6" class="text-center text-muted">Loading latest listings...</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="panel-footer">
+            <span>Browse all products with keyword search, price range, and sorting in the catalog.</span>
+            <a href="marketplace.html">Open Marketplace Catalog &raquo;</a>
+          </div>
+        </section>
+
+        <!-- Active Sellers Directory -->
+        <section class="panel" aria-labelledby="featured-sellers-heading">
+          <div class="panel-header">
+            <h2 id="featured-sellers-heading" class="panel-title">Active Sellers</h2>
+            <a href="contact.html">Contact a Seller &raquo;</a>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Seller Username</th>
+                <th scope="col">Specialty</th>
+                <th scope="col" class="col-right">Listings</th>
+                <th scope="col" class="col-center">Member Since</th>
+              </tr>
+            </thead>
+            <tbody id="home-featured-sellers-body">
+              <tr>
+                <td colspan="4" class="text-center text-muted">Loading active sellers...</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <!-- Shared Footer -->
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="index.html">Home</a> |
+        <a href="marketplace.html">Marketplace</a> |
+        <a href="categories.html">Categories</a> |
+        <a href="cart.html">Shopping Cart</a> |
+        <a href="checkout.html">Checkout</a> |
+        <a href="payment.html">Payment</a> |
+        <a href="orders.html">Order Lookup</a> |
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-meta">
+        Copyright &copy; 2001&ndash;2026 RetroMarket Online Directory. All rights reserved.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

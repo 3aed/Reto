@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Details — RetroMarket</title>
+  <meta name="description" content="View product images, description, specifications, shipping information, seller profile, and related items on RetroMarket." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/marketplace.css" />
+  <script src="js/products.js" defer></script>
+  <script src="js/cart.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <div class="page-wrapper">
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span>Welcome, <strong>Guest Visitor</strong></span>
+        <span class="utility-sep">|</span>
+        <span id="current-date-display"></span>
+      </div>
+      <div class="utility-right">
+        <a href="orders.html" class="utility-link">Order Lookup</a>
+        <span class="utility-sep">|</span>
+        <a href="cart.html" class="utility-cart-link">
+          <img src="assets/icons/cart.svg" alt="" width="14" height="14" />
+          <span>Shopping Cart (<span class="js-cart-count num">0</span>)</span>
+        </a>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <a href="index.html" class="brand-block">
+        <img src="assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Classic Online Buying &amp; Selling Directory</span>
+        </span>
+      </a>
+      <form id="header-search-form" class="header-search" action="marketplace.html" method="get" role="search">
+        <label for="header-search-input" class="sr-only">Search listings</label>
+        <input id="header-search-input" type="text" name="q" class="header-search-input" placeholder="Search products, sellers, IDs..." />
+        <label for="header-search-category" class="sr-only">Category</label>
+        <select id="header-search-category" name="cat" class="header-search-select">
+          <option value="all">All Categories</option>
+        </select>
+        <button type="submit" class="header-search-btn">Search</button>
+      </form>
+    </header>
+
+    <nav class="main-nav" aria-label="Primary Navigation">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
+        <li class="nav-item"><a href="marketplace.html" class="nav-link active">Marketplace</a></li>
+        <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
+        <li class="nav-item"><a href="cart.html" class="nav-link">Shopping Cart (<span class="js-cart-count num">0</span>)</a></li>
+        <li class="nav-item"><a href="contact.html" class="nav-link">Contact</a></li>
+      </ul>
+    </nav>
+
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-trail">
+        You are here: <a href="index.html">RetroMarket</a> &raquo; <a href="marketplace.html">Marketplace</a> &raquo;
+        <span id="product-breadcrumb-title" class="breadcrumb-current">Product Details</span>
+      </div>
+      <div class="nowrap"><a href="marketplace.html">&laquo; Back to Marketplace Catalog</a></div>
+    </div>
+
+    <div id="cart-feedback-bar" class="cart-feedback-bar" role="status" aria-live="polite">
+      <div>
+        <strong id="cart-feedback-text">Item added to cart.</strong>
+        &nbsp;<a href="cart.html">View Shopping Cart &raquo;</a>
+      </div>
+      <button id="cart-feedback-dismiss" type="button" class="btn btn-compact">Dismiss</button>
+    </div>
+
+    <div class="layout-body">
+      <aside class="sidebar" aria-label="Product Navigation Sidebar">
+        <section class="panel">
+          <div class="panel-header"><span>Browse Categories</span></div>
+          <ul class="sidebar-list" data-dynamic-sidebar-categories="categories">
+            <li class="text-muted"><span class="sidebar-cat-link">Loading categories...</span></li>
+          </ul>
+          <div class="panel-footer"><a href="categories.html">View All Categories &raquo;</a></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Shopping Cart</span></div>
+          <div class="panel-body">
+            <p class="text-muted">Items in cart: <strong class="js-cart-count num">0</strong><br />Subtotal: <strong class="js-cart-subtotal price">$0.00</strong></p>
+            <a href="cart.html" class="btn">Open Cart Page</a>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Buyer Guidelines</span></div>
+          <div class="panel-body">
+            <ul class="sidebar-guidelines">
+              <li>Inspect listing condition and specifications before purchasing.</li>
+              <li>Use Contact Seller for compatibility or shipping questions.</li>
+            </ul>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <section class="panel">
+          <div class="panel-header panel-header-dark">
+            <span>Product Details</span>
+            <a href="marketplace.html">&laquo; Back to Catalog</a>
+          </div>
+          <div id="product-detail-container">
+            <div class="panel-body text-muted">Loading product listing details...</div>
+          </div>
+        </section>
+
+        <section id="contact-seller-panel" class="panel contact-seller-panel" aria-labelledby="contact-seller-heading">
+          <div class="panel-header">
+            <span id="contact-seller-heading">Contact Seller: <span id="contact-seller-name">Seller</span></span>
+            <span class="panel-header-sub">Direct Guest Inquiry &mdash; No Account Required</span>
+          </div>
+          <form id="contact-seller-form">
+            <table class="form-table">
+              <tbody>
+                <tr>
+                  <th scope="row"><label for="contact-subject">Subject</label></th>
+                  <td><input id="contact-subject" name="subject" type="text" class="form-input" readonly /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="contact-sender-name">Your Name</label></th>
+                  <td><input id="contact-sender-name" name="sender_name" type="text" class="form-input" required /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="contact-sender-email">Your Email</label></th>
+                  <td><input id="contact-sender-email" name="sender_email" type="email" class="form-input" required /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="contact-message">Message to Seller</label></th>
+                  <td><textarea id="contact-message" name="message" class="form-textarea" placeholder="Ask about condition, testing, combined shipping, or local pickup..." required></textarea></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="panel-footer">
+              <span>Inquiries are stored with your product reference ID attached.</span>
+              <button type="submit" class="btn btn-primary">Send Inquiry</button>
+            </div>
+          </form>
+          <div class="panel-body">
+            <div id="contact-seller-status" class="inline-message" role="status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <div id="product-subgrid" class="product-subgrid">
+          <section class="panel" aria-labelledby="specs-heading">
+            <div class="panel-header"><span id="specs-heading">Technical Specifications</span></div>
+            <table class="data-table">
+              <tbody id="product-specs-body">
+                <tr><td class="text-muted">Loading specifications...</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel" aria-labelledby="shipping-heading">
+            <div class="panel-header"><span id="shipping-heading">Shipping &amp; Fulfillment Information</span></div>
+            <table class="data-table">
+              <tbody id="product-shipping-body">
+                <tr><td class="text-muted">Loading shipping details...</td></tr>
+              </tbody>
+            </table>
+          </section>
+        </div>
+
+        <section id="related-products-panel" class="panel" aria-labelledby="related-heading">
+          <div class="panel-header">
+            <span id="related-heading">Related Products</span>
+            <a href="marketplace.html">Browse Full Marketplace &raquo;</a>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col" class="col-center">Photo</th>
+                <th scope="col">Product Name</th>
+                <th scope="col">Category</th>
+                <th scope="col">Condition</th>
+                <th scope="col">Availability</th>
+                <th scope="col" class="col-right">Price</th>
+              </tr>
+            </thead>
+            <tbody id="related-products-body">
+              <tr>
+                <td colspan="6" class="text-center text-muted">Loading related items...</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="index.html">Home</a> |
+        <a href="marketplace.html">Marketplace</a> |
+        <a href="categories.html">Categories</a> |
+        <a href="cart.html">Shopping Cart</a> |
+        <a href="checkout.html">Checkout</a> |
+        <a href="payment.html">Payment</a> |
+        <a href="orders.html">Order Lookup</a> |
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-meta">
+        Copyright &copy; RetroMarket Online Directory. All rights reserved.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

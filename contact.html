@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Sellers &amp; Support — RetroMarket</title>
+  <meta name="description" content="Contact RetroMarket sellers or support directly about product listings, orders, or manual payment arrangements without creating an account." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/marketplace.css" />
+  <script src="js/products.js" defer></script>
+  <script src="js/cart.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- Top Utility Bar -->
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span>Welcome, <strong>Guest Visitor</strong></span>
+        <span class="utility-sep">|</span>
+        <span id="current-date-display"></span>
+      </div>
+      <div class="utility-right">
+        <a href="orders.html" class="utility-link">Order Lookup</a>
+        <span class="utility-sep">|</span>
+        <a href="cart.html" class="utility-cart-link">
+          <img src="assets/icons/cart.svg" alt="" width="14" height="14" />
+          <span>Shopping Cart (<span class="js-cart-count num">0</span>)</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="site-header">
+      <a href="index.html" class="brand-block">
+        <img src="assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Classic Online Buying &amp; Selling Directory &mdash; Est. 2001</span>
+        </span>
+      </a>
+      <form id="header-search-form" class="header-search" action="marketplace.html" method="get" role="search">
+        <label for="header-search-input" class="sr-only">Search listings</label>
+        <input id="header-search-input" type="text" name="q" class="header-search-input" placeholder="Search products, sellers, IDs..." />
+        <label for="header-search-category" class="sr-only">Category</label>
+        <select id="header-search-category" name="cat" class="header-search-select">
+          <option value="all">All Categories</option>
+        </select>
+        <button type="submit" class="header-search-btn">Search</button>
+      </form>
+    </header>
+
+    <!-- Primary Public Visitor Navigation -->
+    <nav class="main-nav" aria-label="Primary Navigation">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
+        <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
+        <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
+        <li class="nav-item"><a href="cart.html" class="nav-link">Shopping Cart (<span class="js-cart-count num">0</span>)</a></li>
+        <li class="nav-item"><a href="contact.html" class="nav-link active" aria-current="page">Contact</a></li>
+      </ul>
+    </nav>
+
+    <!-- Breadcrumb Strip -->
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-trail">
+        You are here: <a href="index.html">RetroMarket</a> &raquo; <span class="breadcrumb-current">Contact Sellers &amp; Support</span>
+      </div>
+      <div class="nowrap"><a href="orders.html">Order Lookup &raquo;</a></div>
+    </div>
+
+    <!-- Layout Body -->
+    <div class="layout-body">
+      <aside class="sidebar" aria-label="Contact Information Sidebar">
+        <section class="panel">
+          <div class="panel-header"><span>Guest Communication</span></div>
+          <div class="panel-body">
+            <p><strong>No registration required.</strong></p>
+            <p class="text-muted">
+              Ask sellers about item condition, shipping quotes, manual payment arrangements, or reference an existing guest Order Reference ID.
+            </p>
+            <p class="text-muted">
+              Directory Support:<br />
+              <strong data-site-support-email>Not yet configured</strong>
+            </p>
+            <p class="text-muted">
+              Seller Contact Desk:<br />
+              <span data-seller-contact-info>Use the inquiry form to reach RetroMarket support or an active seller.</span>
+            </p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Quick Guest Links</span></div>
+          <ul class="sidebar-list">
+            <li><a href="marketplace.html" class="sidebar-cat-link"><span>Browse Product Catalog</span></a></li>
+            <li><a href="orders.html" class="sidebar-cat-link"><span>Look Up Guest Order</span></a></li>
+            <li><a href="payment.html" class="sidebar-cat-link"><span>Payment Instructions</span></a></li>
+            <li><a href="cart.html" class="sidebar-cat-link"><span>Shopping Cart</span></a><span class="sidebar-count js-cart-count">0</span></li>
+          </ul>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <!-- Guest Contact Seller Form -->
+        <section class="panel section-gap" aria-labelledby="contact-form-heading">
+          <div class="panel-header panel-header-dark">
+            <h1 id="contact-form-heading" class="panel-title">Contact a Seller or RetroMarket Support</h1>
+            <span class="panel-header-sub">Fields marked <span class="form-required">*</span> are required</span>
+          </div>
+
+          <form id="guest-contact-form" novalidate>
+            <table class="form-table">
+              <tbody>
+                <tr>
+                  <th scope="row"><label for="contact-seller-select">Recipient Seller <span class="form-required">*</span></label></th>
+                  <td>
+                    <select id="contact-seller-select" name="recipient" class="form-select">
+                      <option value="RetroMarket Support">RetroMarket Support Desk</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="contact-product-ref">Product Reference</label></th>
+                  <td>
+                    <input id="contact-product-ref" name="product_ref" type="text" class="form-input" placeholder="Optional — product title or listing ID" />
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="contact-order-ref">Order Reference ID</label></th>
+                  <td>
+                    <input id="contact-order-ref" name="order_ref" type="text" class="form-input" placeholder="Optional — e.g., RM-2026-A1B2C3D4" />
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="contact-guest-name">Your Name <span class="form-required">*</span></label></th>
+                  <td>
+                    <input id="contact-guest-name" name="guest_name" type="text" class="form-input" placeholder="Full name or contact handle" required />
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="contact-guest-email">Your Email Address <span class="form-required">*</span></label></th>
+                  <td>
+                    <input id="contact-guest-email" name="guest_email" type="email" class="form-input" placeholder="buyer@example.com" required />
+                    <span class="form-hint">Sellers or support will reply to this email address.</span>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="contact-inquiry-message">Inquiry Message <span class="form-required">*</span></label></th>
+                  <td>
+                    <textarea id="contact-inquiry-message" name="inquiry_message" class="form-textarea" placeholder="Ask about item condition, shipping options, combined orders, or manual payment instructions..." required></textarea>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="panel-footer">
+              <a href="marketplace.html" class="btn">&laquo; Back to Marketplace</a>
+              <button type="submit" class="btn btn-primary">Send Guest Inquiry &raquo;</button>
+            </div>
+          </form>
+
+          <div class="panel-body">
+            <div id="guest-contact-status" class="inline-message" role="status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <!-- Active Seller Directory -->
+        <section class="panel" aria-labelledby="seller-directory-heading">
+          <div class="panel-header">
+            <span id="seller-directory-heading">RetroMarket Seller Directory</span>
+            <span class="panel-header-sub">Click "Select Seller" to prefill the contact form above</span>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Seller Username</th>
+                <th scope="col">Specialty</th>
+                <th scope="col">Location</th>
+                <th scope="col">Avg. Response</th>
+                <th scope="col" class="col-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="contact-seller-directory-body">
+              <tr><td colspan="5" class="text-center text-muted">Loading seller directory...</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <!-- Shared Public Footer -->
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="index.html">Home</a> |
+        <a href="marketplace.html">Marketplace</a> |
+        <a href="categories.html">Categories</a> |
+        <a href="cart.html">Shopping Cart</a> |
+        <a href="checkout.html">Checkout</a> |
+        <a href="payment.html">Payment</a> |
+        <a href="orders.html">Order Lookup</a> |
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-meta">
+        Copyright &copy; 2001&ndash;2026 RetroMarket Online Directory. All rights reserved.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

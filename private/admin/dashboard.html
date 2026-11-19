@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Admin Control Panel — RetroMarket</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/marketplace.css" />
+  <link rel="stylesheet" href="__ADMIN_BASE__/assets/admin.css" />
+  <script src="__ADMIN_BASE__/assets/admin-dashboard.js" defer></script>
+</head>
+<body data-admin-base="__ADMIN_BASE__">
+  <div class="page-wrapper">
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span><strong>RetroMarket Administration Control Panel</strong></span>
+        <span class="utility-sep">|</span>
+        <span id="admin-current-date"></span>
+      </div>
+      <div class="utility-right">
+        <span>Signed in as: <strong id="admin-session-email">Administrator</strong></span>
+        <span class="utility-sep">|</span>
+        <a href="/index.html" class="utility-link">Public Storefront</a>
+        <span class="utility-sep">|</span>
+        <button type="button" class="admin-link-btn js-admin-logout">Sign Out</button>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <a href="__ADMIN_BASE__/" class="brand-block">
+        <img src="/assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Production Control Panel &mdash; Catalog, Sellers, Orders, Payments &amp; Audit</span>
+        </span>
+      </a>
+      <div>
+        <a href="/index.html" class="btn">Public Storefront &raquo;</a>
+        <button type="button" class="btn btn-danger js-admin-logout">Sign Out</button>
+      </div>
+    </header>
+
+    <nav class="main-nav" aria-label="Administrator Navigation">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="#overview" class="nav-link active js-admin-tab" data-admin-tab="overview">Overview</a></li>
+        <li class="nav-item"><a href="#products" class="nav-link js-admin-tab" data-admin-tab="products">Products</a></li>
+        <li class="nav-item"><a href="#categories" class="nav-link js-admin-tab" data-admin-tab="categories">Categories</a></li>
+        <li class="nav-item"><a href="#sellers" class="nav-link js-admin-tab" data-admin-tab="sellers">Sellers</a></li>
+        <li class="nav-item"><a href="#orders" class="nav-link js-admin-tab" data-admin-tab="orders">Orders</a></li>
+        <li class="nav-item"><a href="#payments" class="nav-link js-admin-tab" data-admin-tab="payments">Payments</a></li>
+        <li class="nav-item"><a href="#inquiries" class="nav-link js-admin-tab" data-admin-tab="inquiries">Inquiries</a></li>
+        <li class="nav-item"><a href="#audit" class="nav-link js-admin-tab" data-admin-tab="audit">Audit Logs</a></li>
+        <li class="nav-item"><a href="#settings" class="nav-link js-admin-tab" data-admin-tab="settings">Settings</a></li>
+      </ul>
+    </nav>
+
+    <div class="admin-session-bar">
+      <span>
+        <strong>Authenticated Server Session</strong> &middot; Role: <strong id="admin-session-role">--</strong>
+        &middot; Session expires (UTC): <span id="admin-session-expires">--</span>
+      </span>
+      <button type="button" id="admin-refresh-all-btn" class="btn btn-compact">Refresh Data</button>
+    </div>
+
+    <div class="layout-body">
+      <aside class="sidebar" aria-label="Admin Section Menu">
+        <section class="panel">
+          <div class="panel-header panel-header-dark"><span>Control Panel Menu</span></div>
+          <ul class="sidebar-list">
+            <li><a href="#overview" class="sidebar-cat-link is-active js-admin-tab" data-admin-tab="overview"><span>1. Overview</span></a></li>
+            <li><a href="#products" class="sidebar-cat-link js-admin-tab" data-admin-tab="products"><span>2. Products</span></a><span class="sidebar-count" id="side-count-products">0</span></li>
+            <li><a href="#categories" class="sidebar-cat-link js-admin-tab" data-admin-tab="categories"><span>3. Categories</span></a><span class="sidebar-count" id="side-count-categories">0</span></li>
+            <li><a href="#sellers" class="sidebar-cat-link js-admin-tab" data-admin-tab="sellers"><span>4. Sellers</span></a><span class="sidebar-count" id="side-count-sellers">0</span></li>
+            <li><a href="#orders" class="sidebar-cat-link js-admin-tab" data-admin-tab="orders"><span>5. Orders</span></a><span class="sidebar-count" id="side-count-orders">0</span></li>
+            <li><a href="#payments" class="sidebar-cat-link js-admin-tab" data-admin-tab="payments"><span>6. Payments</span></a><span class="sidebar-count" id="side-count-payments">0</span></li>
+            <li><a href="#inquiries" class="sidebar-cat-link js-admin-tab" data-admin-tab="inquiries"><span>7. Inquiries</span></a><span class="sidebar-count" id="side-count-inquiries">0</span></li>
+            <li><a href="#audit" class="sidebar-cat-link js-admin-tab" data-admin-tab="audit"><span>8. Audit Logs</span></a></li>
+            <li><a href="#settings" class="sidebar-cat-link js-admin-tab" data-admin-tab="settings"><span>9. Settings</span></a></li>
+          </ul>
+          <div class="panel-footer">
+            <a href="/marketplace.html">Open Public Catalog &raquo;</a>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Integration Status</span></div>
+          <table class="sidebar-stat-table">
+            <tbody id="admin-integration-status-body">
+              <tr><td class="sidebar-stat-label">CyberSource</td><td class="sidebar-stat-val">Checking...</td></tr>
+              <tr><td class="sidebar-stat-label">SMTP Email</td><td class="sidebar-stat-val">Checking...</td></tr>
+              <tr><td class="sidebar-stat-label">Crypto Verifier</td><td class="sidebar-stat-val">Checking...</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <!-- SECTION 1: OVERVIEW -->
+        <section id="admin-section-overview" class="admin-section is-active" aria-labelledby="admin-overview-heading">
+          <div class="panel section-gap">
+            <div class="panel-header panel-header-dark">
+              <h1 id="admin-overview-heading" class="panel-title">Dashboard Overview &mdash; Live Database Statistics</h1>
+              <span class="panel-header-sub">Authoritative Server Database Records</span>
+            </div>
+
+            <div class="admin-summary-grid">
+              <div class="admin-stat-box">
+                <div class="admin-stat-label">Total Products</div>
+                <div id="ov-stat-products" class="admin-stat-number">0</div>
+                <div id="ov-stat-products-sub" class="admin-stat-sub">In Stock: 0 &middot; Out of Stock: 0</div>
+              </div>
+              <div class="admin-stat-box">
+                <div class="admin-stat-label">Categories</div>
+                <div id="ov-stat-categories" class="admin-stat-number">0</div>
+                <div class="admin-stat-sub">Catalog Departments</div>
+              </div>
+              <div class="admin-stat-box">
+                <div class="admin-stat-label">Active Sellers</div>
+                <div id="ov-stat-sellers" class="admin-stat-number">0</div>
+                <div id="ov-stat-sellers-sub" class="admin-stat-sub">Total Sellers: 0</div>
+              </div>
+              <div class="admin-stat-box">
+                <div class="admin-stat-label">Total Orders</div>
+                <div id="ov-stat-orders" class="admin-stat-number">0</div>
+                <div id="ov-stat-revenue-sub" class="admin-stat-sub">Verified Paid Revenue: $0.00</div>
+              </div>
+              <div class="admin-stat-box admin-stat-box-highlight">
+                <div class="admin-stat-label">Pending Payments</div>
+                <div id="ov-stat-pending-payments" class="admin-stat-number">0</div>
+                <div class="admin-stat-sub">Pending &amp; Awaiting Verification</div>
+              </div>
+              <div class="admin-stat-box">
+                <div class="admin-stat-label">Customer Inquiries</div>
+                <div id="ov-stat-inquiries" class="admin-stat-number">0</div>
+                <div class="admin-stat-sub">Stored in Database</div>
+              </div>
+            </div>
+
+            <div class="admin-quick-links">
+              <button type="button" class="btn btn-primary btn-compact js-admin-tab" data-admin-tab="categories">+ Add Category</button>
+              <button type="button" class="btn btn-compact js-admin-tab" data-admin-tab="sellers">+ Add Seller</button>
+              <button type="button" class="btn btn-compact js-admin-tab" data-admin-tab="products">+ Add Product</button>
+              <button type="button" class="btn btn-compact js-admin-tab" data-admin-tab="orders">Manage Orders</button>
+              <button type="button" class="btn btn-compact js-admin-tab" data-admin-tab="payments">Review Payments</button>
+              <button type="button" class="btn btn-compact js-admin-tab" data-admin-tab="settings">Website Settings</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span>Recent Administrative Audit Events</span>
+              <button type="button" class="btn btn-compact js-admin-tab" data-admin-tab="audit">View All Logs &raquo;</button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Action</th>
+                  <th scope="col">Administrator</th>
+                  <th scope="col">Target</th>
+                  <th scope="col">IP</th>
+                  <th scope="col" class="col-right">Timestamp (UTC)</th>
+                </tr>
+              </thead>
+              <tbody id="ov-recent-audit-body">
+                <tr><td colspan="5" class="text-center text-muted">Loading audit records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SECTION 2: PRODUCTS -->
+        <section id="admin-section-products" class="admin-section" aria-labelledby="admin-products-heading">
+          <div class="panel section-gap">
+            <div class="panel-header panel-header-dark">
+              <span id="admin-product-form-heading">Add New Product</span>
+              <span class="panel-header-sub">Requires at least one Category and one Seller</span>
+            </div>
+            <form id="admin-product-form" novalidate>
+              <input type="hidden" id="admin-prod-id" value="" />
+              <table class="form-table">
+                <tbody>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-name">Product Name <span class="form-required">*</span></label></th>
+                    <td><input id="admin-prod-name" type="text" class="form-input" required /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-category">Category <span class="form-required">*</span></label></th>
+                    <td><select id="admin-prod-category" class="form-select" required></select></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-seller">Seller <span class="form-required">*</span></label></th>
+                    <td><select id="admin-prod-seller" class="form-select" required></select></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-price">Price <span class="form-required">*</span></label></th>
+                    <td><input id="admin-prod-price" type="number" min="0" step="0.01" class="form-input" required /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-stock">Stock Quantity <span class="form-required">*</span></label></th>
+                    <td><input id="admin-prod-stock" type="number" min="0" step="1" value="1" class="form-input" required /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-condition">Condition</label></th>
+                    <td><input id="admin-prod-condition" type="text" class="form-input" value="Used - Tested" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-shipping">Shipping Cost</label></th>
+                    <td><input id="admin-prod-shipping" type="number" min="0" step="0.01" value="0.00" class="form-input" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Flags</th>
+                    <td>
+                      <label class="admin-checkbox-inline"><input id="admin-prod-instock" type="checkbox" checked /><span>In Stock / Active</span></label>
+                      <label class="admin-checkbox-inline"><input id="admin-prod-digital" type="checkbox" /><span>Digital Delivery (No Physical Shipping)</span></label>
+                      <label class="admin-checkbox-inline"><input id="admin-prod-featured" type="checkbox" /><span>Featured on Homepage</span></label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-image">Product Image</label></th>
+                    <td>
+                      <select id="admin-prod-image-preset" class="form-select"></select>
+                      <div class="admin-image-preview">
+                        <img id="admin-prod-image-preview" src="/assets/images/retro-keyboard.jpg" alt="Product preview" />
+                        <input id="admin-prod-image" type="text" class="form-input" value="assets/images/retro-keyboard.jpg" />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-description">Description <span class="form-required">*</span></label></th>
+                    <td><textarea id="admin-prod-description" class="form-textarea" required></textarea></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="panel-footer">
+                <button type="button" id="admin-prod-cancel-btn" class="btn is-hidden">Cancel Edit</button>
+                <button type="submit" id="admin-prod-submit-btn" class="btn btn-primary">Save Product</button>
+              </div>
+            </form>
+            <div class="panel-body">
+              <div id="admin-product-msg" class="inline-message" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span id="admin-products-heading">Catalog Products</span>
+              <a href="/marketplace.html" class="btn btn-compact">View Public Storefront &raquo;</a>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Product Name</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Seller</th>
+                  <th scope="col" class="col-right">Price</th>
+                  <th scope="col" class="col-center">Stock</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" class="col-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-products-body">
+                <tr><td colspan="8" class="text-center text-muted">Loading products...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SECTION 3: CATEGORIES -->
+        <section id="admin-section-categories" class="admin-section" aria-labelledby="admin-categories-heading">
+          <div class="panel section-gap">
+            <div class="panel-header panel-header-dark">
+              <span id="admin-category-form-heading">Create Category</span>
+            </div>
+            <form id="admin-category-form" novalidate>
+              <input type="hidden" id="admin-cat-edit-id" value="" />
+              <table class="form-table">
+                <tbody>
+                  <tr>
+                    <th scope="row"><label for="admin-cat-name">Category Name <span class="form-required">*</span></label></th>
+                    <td><input id="admin-cat-name" type="text" class="form-input" required /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-cat-slug">Slug (optional)</label></th>
+                    <td><input id="admin-cat-slug" type="text" class="form-input" placeholder="Auto-generated if blank" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-cat-desc">Description</label></th>
+                    <td><textarea id="admin-cat-desc" class="form-textarea"></textarea></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="panel-footer">
+                <button type="button" id="admin-cat-cancel-btn" class="btn is-hidden">Cancel Edit</button>
+                <button type="submit" id="admin-cat-submit-btn" class="btn btn-primary">Save Category</button>
+              </div>
+            </form>
+            <div class="panel-body">
+              <div id="admin-category-msg" class="inline-message" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><span id="admin-categories-heading">Catalog Categories</span></div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Slug</th>
+                  <th scope="col">Description</th>
+                  <th scope="col" class="col-right">Products</th>
+                  <th scope="col" class="col-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-categories-body">
+                <tr><td colspan="5" class="text-center text-muted">Loading categories...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SECTION 4: SELLERS -->
+        <section id="admin-section-sellers" class="admin-section" aria-labelledby="admin-sellers-heading">
+          <div class="panel section-gap">
+            <div class="panel-header panel-header-dark">
+              <span id="admin-seller-form-heading">Add Seller</span>
+            </div>
+            <form id="admin-seller-form" novalidate>
+              <input type="hidden" id="admin-seller-edit-id" value="" />
+              <table class="form-table">
+                <tbody>
+                  <tr>
+                    <th scope="row"><label for="admin-seller-username">Seller Username <span class="form-required">*</span></label></th>
+                    <td><input id="admin-seller-username" type="text" class="form-input" required /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-seller-email">Contact Email <span class="form-required">*</span></label></th>
+                    <td><input id="admin-seller-email" type="email" class="form-input" required /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-seller-location">Location</label></th>
+                    <td><input id="admin-seller-location" type="text" class="form-input" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-seller-specialty">Specialty</label></th>
+                    <td><input id="admin-seller-specialty" type="text" class="form-input" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-seller-response">Response Time</label></th>
+                    <td><input id="admin-seller-response" type="text" class="form-input" value="Within 24 hours" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Status</th>
+                    <td>
+                      <label class="admin-checkbox-inline">
+                        <input id="admin-seller-active" type="checkbox" checked />
+                        <span>Active Seller</span>
+                      </label>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="panel-footer">
+                <button type="button" id="admin-seller-cancel-btn" class="btn is-hidden">Cancel Edit</button>
+                <button type="submit" id="admin-seller-submit-btn" class="btn btn-primary">Save Seller</button>
+              </div>
+            </form>
+            <div class="panel-body">
+              <div id="admin-seller-msg" class="inline-message" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><span id="admin-sellers-heading">Registered Sellers</span></div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Username</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Location</th>
+                  <th scope="col">Specialty</th>
+                  <th scope="col" class="col-right">Products</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" class="col-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-sellers-body">
+                <tr><td colspan="7" class="text-center text-muted">Loading sellers...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SECTION 5: ORDERS -->
+        <section id="admin-section-orders" class="panel admin-section" aria-labelledby="admin-orders-heading">
+          <div class="panel-header panel-header-dark">
+            <span id="admin-orders-heading">Order Management</span>
+            <span class="panel-header-sub">Inspect customer orders and update fulfillment status</span>
+          </div>
+          <div id="admin-order-detail-drawer" class="admin-detail-drawer is-hidden"></div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Order Reference</th>
+                <th scope="col">Date (UTC)</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Method</th>
+                <th scope="col">Payment</th>
+                <th scope="col">Order Status</th>
+                <th scope="col" class="col-right">Total</th>
+                <th scope="col" class="col-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-orders-body">
+              <tr><td colspan="8" class="text-center text-muted">Loading orders...</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SECTION 6: PAYMENTS -->
+        <section id="admin-section-payments" class="panel admin-section" aria-labelledby="admin-payments-heading">
+          <div class="panel-header panel-header-dark">
+            <span id="admin-payments-heading">Payment Records &amp; Verification</span>
+            <span class="panel-header-sub">CyberSource &amp; Crypto require cryptographic/on-chain settlement; Manual payments require documented verification reference</span>
+          </div>
+          <div id="admin-payment-review-drawer" class="admin-detail-drawer is-hidden"></div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Payment Ref</th>
+                <th scope="col">Order Ref</th>
+                <th scope="col">Method</th>
+                <th scope="col" class="col-right">Amount</th>
+                <th scope="col">Tx / Provider Ref</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="col-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-payments-body">
+              <tr><td colspan="7" class="text-center text-muted">Loading payments...</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SECTION 7: INQUIRIES -->
+        <section id="admin-section-inquiries" class="panel admin-section" aria-labelledby="admin-inquiries-heading">
+          <div class="panel-header panel-header-dark">
+            <span id="admin-inquiries-heading">Guest Seller &amp; Support Inquiries</span>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Ref</th>
+                <th scope="col">Recipient</th>
+                <th scope="col">Guest</th>
+                <th scope="col">Order Ref</th>
+                <th scope="col">Message</th>
+                <th scope="col">Email Sent</th>
+                <th scope="col" class="col-right">Date (UTC)</th>
+              </tr>
+            </thead>
+            <tbody id="admin-inquiries-body">
+              <tr><td colspan="7" class="text-center text-muted">Loading inquiries...</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SECTION 8: AUDIT LOGS -->
+        <section id="admin-section-audit" class="panel admin-section" aria-labelledby="admin-audit-heading">
+          <div class="panel-header panel-header-dark">
+            <span id="admin-audit-heading">Security &amp; Administrative Audit Log</span>
+            <span class="panel-header-sub">Immutable server-side record of sensitive operations</span>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Action</th>
+                <th scope="col">Administrator</th>
+                <th scope="col">Target</th>
+                <th scope="col">Details</th>
+                <th scope="col">IP</th>
+                <th scope="col" class="col-right">Timestamp (UTC)</th>
+              </tr>
+            </thead>
+            <tbody id="admin-audit-body">
+              <tr><td colspan="7" class="text-center text-muted">Loading audit logs...</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SECTION 9: WEBSITE SETTINGS -->
+        <section id="admin-section-settings" class="panel admin-section" aria-labelledby="admin-settings-heading">
+          <div class="panel-header panel-header-dark">
+            <span id="admin-settings-heading">Website Settings &amp; Merchant Wallet Configuration</span>
+          </div>
+          <form id="admin-settings-form" novalidate>
+            <table class="form-table">
+              <tbody>
+                <tr>
+                  <th scope="row"><label for="set-site-name">Site Name</label></th>
+                  <td><input id="set-site-name" type="text" class="form-input" required /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-site-tagline">Tagline</label></th>
+                  <td><input id="set-site-tagline" type="text" class="form-input" /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-logo-path">Logo Path</label></th>
+                  <td><input id="set-logo-path" type="text" class="form-input" /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-default-currency">Default Currency</label></th>
+                  <td>
+                    <select id="set-default-currency" class="form-select">
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (&euro;)</option>
+                      <option value="GBP">GBP (&pound;)</option>
+                      <option value="CAD">CAD (CA$)</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-support-email">Support Email</label></th>
+                  <td><input id="set-support-email" type="email" class="form-input" /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-seller-contact-info">Seller Contact Desk Info</label></th>
+                  <td><textarea id="set-seller-contact-info" class="form-textarea"></textarea></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-guest-notice">Guest Checkout Notice</label></th>
+                  <td><textarea id="set-guest-notice" class="form-textarea"></textarea></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-btc-wallet">Merchant BTC Wallet Address</label></th>
+                  <td><input id="set-btc-wallet" type="text" class="form-input admin-wallet-input" placeholder="Leave blank if BTC is not enabled" /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-eth-wallet">Merchant ETH Wallet Address</label></th>
+                  <td><input id="set-eth-wallet" type="text" class="form-input admin-wallet-input" placeholder="Leave blank if ETH is not enabled" /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-usdt-wallet">Merchant USDT Wallet Address</label></th>
+                  <td><input id="set-usdt-wallet" type="text" class="form-input admin-wallet-input" placeholder="Leave blank if USDT is not enabled" /></td>
+                </tr>
+                <tr>
+                  <th scope="row"><label for="set-usdt-network">USDT Network</label></th>
+                  <td>
+                    <select id="set-usdt-network" class="form-select">
+                      <option value="ERC-20">ERC-20 (Ethereum)</option>
+                      <option value="TRC-20">TRC-20 (Tron)</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="panel-footer">
+              <span class="text-muted">Saved to server database and logged in audit trail.</span>
+              <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+          </form>
+          <div class="panel-body">
+            <div id="admin-settings-msg" class="inline-message" role="status" aria-live="polite"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div class="footer-meta">
+        RetroMarket Administration Control Panel &middot; All actions are audited.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

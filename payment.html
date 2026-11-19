@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment — RetroMarket</title>
+  <meta name="description" content="Complete payment for your RetroMarket order using CyberSource Secure Acceptance, Cryptocurrency (BTC/ETH/USDT), or Manual Seller Payment." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/marketplace.css" />
+  <link rel="stylesheet" href="css/gateway.css" />
+  <script src="js/products.js" defer></script>
+  <script src="js/cart.js" defer></script>
+  <script src="js/app.js" defer></script>
+  <script src="js/cybersource-gateway.js" defer></script>
+  <script src="js/checkout.js" defer></script>
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- Top Utility Bar -->
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span>Welcome, <strong>Guest Visitor</strong></span>
+        <span class="utility-sep">|</span>
+        <span id="current-date-display"></span>
+      </div>
+      <div class="utility-right">
+        <a href="orders.html" class="utility-link">Order Lookup</a>
+        <span class="utility-sep">|</span>
+        <a href="cart.html" class="utility-cart-link">
+          <img src="assets/icons/cart.svg" alt="" width="14" height="14" />
+          <span>Shopping Cart (<span class="js-cart-count num">0</span>)</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Website Header -->
+    <header class="site-header">
+      <a href="index.html" class="brand-block">
+        <img src="assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Classic Online Buying &amp; Selling Directory &mdash; Est. 2001</span>
+        </span>
+      </a>
+      <form id="header-search-form" class="header-search" action="marketplace.html" method="get" role="search">
+        <label for="header-search-input" class="sr-only">Search listings</label>
+        <input id="header-search-input" type="text" name="q" class="header-search-input" placeholder="Search products, sellers, IDs..." />
+        <label for="header-search-category" class="sr-only">Category</label>
+        <select id="header-search-category" name="cat" class="header-search-select">
+          <option value="all">All Categories</option>
+        </select>
+        <button type="submit" class="header-search-btn">Search</button>
+      </form>
+    </header>
+
+    <!-- Traditional Horizontal Navigation -->
+    <nav class="main-nav" aria-label="Primary Navigation">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
+        <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
+        <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
+        <li class="nav-item"><a href="cart.html" class="nav-link">Shopping Cart (<span class="js-cart-count num">0</span>)</a></li>
+        <li class="nav-item"><a href="contact.html" class="nav-link">Contact</a></li>
+      </ul>
+    </nav>
+
+    <!-- Breadcrumb Bar -->
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-trail">
+        You are here: <a href="index.html">RetroMarket</a> &raquo; <a href="checkout.html">Checkout</a> &raquo; <span class="breadcrumb-current">Payment</span>
+      </div>
+      <div class="nowrap">
+        <a href="orders.html">Order Lookup &raquo;</a>
+      </div>
+    </div>
+
+    <!-- Two-Column Page Layout -->
+    <div id="payment-page-app" class="layout-body">
+      <!-- Left Sidebar -->
+      <aside class="sidebar" aria-label="Payment Summary Sidebar">
+        <section class="panel">
+          <div class="panel-header"><span>Order Payment Summary</span></div>
+          <table class="sidebar-stat-table">
+            <tbody>
+              <tr>
+                <td class="sidebar-stat-label">Order Ref</td>
+                <td id="sidebar-pay-order" class="sidebar-stat-val num">&mdash;</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label">Total Due</td>
+                <td id="sidebar-pay-total" class="sidebar-stat-val">&mdash;</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label">Status</td>
+                <td class="sidebar-stat-val"><span id="sidebar-pay-status" class="pay-status-pending">Pending</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="panel-footer">
+            <a href="orders.html">Look Up Order &raquo;</a>
+          </div>
+        </section>
+
+        <!-- Supported Payment Statuses Reference -->
+        <section class="panel">
+          <div class="panel-header"><span>Payment Status Legend</span></div>
+          <table class="sidebar-stat-table">
+            <tbody>
+              <tr>
+                <td class="sidebar-stat-label"><span class="pay-status-pending">Pending</span></td>
+                <td class="text-right text-muted">Not started</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label"><span class="pay-status-awaiting">Awaiting Verification</span></td>
+                <td class="text-right text-muted">Under review</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label"><span class="pay-status-paid">Paid</span></td>
+                <td class="text-right text-muted">Server verified</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label"><span class="pay-status-failed">Failed</span></td>
+                <td class="text-right text-muted">Declined</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label"><span class="pay-status-cancelled">Cancelled</span></td>
+                <td class="text-right text-muted">Cancelled</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label"><span class="pay-status-refunded">Refunded</span></td>
+                <td class="text-right text-muted">Reversed</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Payment Security</span></div>
+          <div class="panel-body">
+            <ul class="sidebar-guidelines">
+              <li>Card numbers are never entered on or stored by RetroMarket.</li>
+              <li>CyberSource payments require verified server-to-server webhook settlement.</li>
+              <li>Cryptocurrency transactions require server-side on-chain confirmation.</li>
+            </ul>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Main Payment Content Column -->
+      <main class="main-content">
+        <!-- Gateway Return Banner (if redirected from CyberSource) -->
+        <div id="cs-return-state-box" class="return-state-box section-gap" role="status" aria-live="polite"></div>
+
+        <!-- Load Order for Payment Form -->
+        <section class="panel section-gap" aria-labelledby="payment-lookup-heading">
+          <div class="panel-header panel-header-dark">
+            <h1 id="payment-lookup-heading" class="panel-title">Load Order for Payment</h1>
+            <span class="panel-header-sub">Order Reference ID &amp; Checkout Email Required</span>
+          </div>
+          <form id="payment-order-lookup-form" class="filter-bar" novalidate>
+            <div class="filter-group">
+              <label for="payment-lookup-order-num"><strong>Order ID:</strong></label>
+              <input
+                id="payment-lookup-order-num"
+                type="text"
+                class="filter-input"
+                placeholder="RM-2026-XXXXXXXX"
+                required
+              />
+            </div>
+            <div class="filter-group">
+              <label for="payment-lookup-email"><strong>Checkout Email:</strong></label>
+              <input
+                id="payment-lookup-email"
+                type="email"
+                class="filter-input"
+                placeholder="buyer@example.com"
+                required
+              />
+            </div>
+            <div class="filter-group">
+              <button type="submit" class="btn btn-primary btn-compact">Load Order</button>
+            </div>
+          </form>
+          <div class="panel-body">
+            <div id="payment-lookup-error" class="error-box" role="alert" aria-live="assertive"></div>
+          </div>
+        </section>
+
+        <!-- Active Order Payment Workspace (Hidden until an authoritative order is loaded) -->
+        <div id="payment-active-workspace" class="is-hidden">
+          <!-- Compact Active Order Overview Table -->
+          <section class="panel section-gap" aria-labelledby="active-order-heading">
+            <div class="panel-header panel-header-dark">
+              <span id="active-order-heading">Order Payment Overview</span>
+              <span class="panel-header-sub">Server-Verified Totals</span>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Order Reference</th>
+                  <th scope="col">Selected Method</th>
+                  <th scope="col" class="col-center">Currency</th>
+                  <th scope="col" class="col-right">Amount Due</th>
+                  <th scope="col">Payment Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td id="pay-summary-order-id" class="num"><strong>&mdash;</strong></td>
+                  <td id="pay-summary-method">CyberSource</td>
+                  <td id="pay-summary-currency" class="col-center">USD</td>
+                  <td id="pay-summary-amount" class="col-right price"><strong>$0.00</strong></td>
+                  <td><span id="pay-summary-status" class="pay-status-pending">Pending</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Three Payment Method Interfaces -->
+          <section class="panel section-gap" aria-labelledby="payment-methods-heading">
+            <div class="panel-header">
+              <span id="payment-methods-heading">Payment Method Interfaces</span>
+              <span class="panel-header-sub">Select a tab to complete payment</span>
+            </div>
+
+            <!-- Classic Square Tab Strip -->
+            <div class="payment-tabs" role="tablist" aria-label="Payment Methods">
+              <button
+                type="button"
+                class="payment-tab-btn is-active"
+                role="tab"
+                aria-selected="true"
+                aria-controls="payment-pane-cybersource"
+                data-payment-tab="cybersource"
+              >
+                1. CyberSource (Hosted Checkout)
+              </button>
+              <button
+                type="button"
+                class="payment-tab-btn"
+                role="tab"
+                aria-selected="false"
+                aria-controls="payment-pane-cryptocurrency"
+                data-payment-tab="cryptocurrency"
+              >
+                2. Cryptocurrency (BTC / ETH / USDT)
+              </button>
+              <button
+                type="button"
+                class="payment-tab-btn"
+                role="tab"
+                aria-selected="false"
+                aria-controls="payment-pane-manual"
+                data-payment-tab="manual"
+              >
+                3. Contact Seller / Manual Payment
+              </button>
+            </div>
+
+            <!-- TAB 1: CYBERSOURCE SECURE ACCEPTANCE HOSTED CHECKOUT -->
+            <div id="payment-pane-cybersource" class="payment-pane is-active" role="tabpanel">
+              <h2 class="payment-pane-title">CyberSource Secure Acceptance Hosted Checkout</h2>
+
+              <div id="cs-config-notice" class="notice-box section-gap">
+                Checking CyberSource Hosted Checkout gateway configuration...
+              </div>
+
+              <table class="data-table section-gap">
+                <tbody>
+                  <tr>
+                    <th scope="row" class="receipt-label-col">Order Reference</th>
+                    <td id="cs-order-ref" class="num"><strong>&mdash;</strong></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Payment Amount</th>
+                    <td id="cs-amount" class="price"><strong>$0.00</strong></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Currency</th>
+                    <td id="cs-currency">USD</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Payment Status</th>
+                    <td><span id="cs-payment-status" class="pay-status-pending">Pending</span></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h3 class="product-desc-heading">Payment Instructions</h3>
+              <ol class="instruction-list">
+                <li>Click <strong>Proceed to CyberSource Hosted Checkout</strong> to generate a server-signed Secure Acceptance checkout session.</li>
+                <li>Enter your Visa or MasterCard payment details securely on CyberSource's hosted payment page.</li>
+                <li>After authorization, CyberSource returns you to RetroMarket and delivers an authenticated server-to-server notification confirming final settlement.</li>
+              </ol>
+
+              <div class="product-detail-actions">
+                <button id="cs-initiate-btn" type="button" class="btn btn-primary">
+                  Proceed to CyberSource Hosted Checkout &raquo;
+                </button>
+              </div>
+
+              <div id="cs-action-feedback" class="inline-message" role="status" aria-live="polite"></div>
+            </div>
+
+            <!-- TAB 2: CRYPTOCURRENCY PAYMENTS (BTC, ETH, USDT) -->
+            <div id="payment-pane-cryptocurrency" class="payment-pane" role="tabpanel">
+              <h2 class="payment-pane-title">Cryptocurrency Payment (BTC / ETH / USDT)</h2>
+
+              <!-- Coin Selector -->
+              <div class="crypto-coin-bar" role="group" aria-label="Select Cryptocurrency">
+                <strong>Select Currency:</strong>
+                <button type="button" class="crypto-coin-btn is-active" data-crypto-coin="BTC" aria-pressed="true">BTC (Bitcoin)</button>
+                <button type="button" class="crypto-coin-btn" data-crypto-coin="ETH" aria-pressed="false">ETH (Ethereum)</button>
+                <button type="button" class="crypto-coin-btn" data-crypto-coin="USDT" aria-pressed="false">USDT (Tether)</button>
+              </div>
+
+              <table class="data-table section-gap">
+                <tbody>
+                  <tr>
+                    <th scope="row" class="receipt-label-col">Order Reference</th>
+                    <td id="crypto-order-ref" class="num"><strong>&mdash;</strong></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Order Amount</th>
+                    <td id="crypto-amount-usd" class="price"><strong>$0.00 USD</strong></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Payment Status</th>
+                    <td><span id="crypto-payment-status" class="pay-status-pending">Pending</span></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="product-detail-actions section-gap">
+                <button id="crypto-generate-invoice-btn" type="button" class="btn btn-primary">
+                  Generate Cryptocurrency Invoice &raquo;
+                </button>
+              </div>
+
+              <!-- Generated Server Invoice Details -->
+              <div id="crypto-invoice-details" class="is-hidden section-gap">
+                <table class="data-table section-gap">
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="receipt-label-col">Invoice Reference</th>
+                      <td id="crypto-inv-ref" class="mono-ref"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Currency &amp; Network</th>
+                      <td id="crypto-inv-coin"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Exact Amount Due</th>
+                      <td id="crypto-inv-amount" class="price"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Invoice Expiration (UTC)</th>
+                      <td id="crypto-inv-expires" class="mono-ref"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Merchant Wallet Address</th>
+                      <td>
+                        <div class="wallet-copy-row">
+                          <label for="crypto-wallet-address" class="sr-only">Merchant Wallet Address</label>
+                          <input id="crypto-wallet-address" type="text" class="wallet-address-input" readonly />
+                          <button id="crypto-copy-btn" type="button" class="btn btn-compact">Copy Address</button>
+                        </div>
+                        <span id="crypto-copy-feedback" class="form-hint" role="status" aria-live="polite"></span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 class="product-desc-heading">Submit Broadcasted Transaction Hash</h3>
+              <form id="crypto-tx-form" novalidate>
+                <table class="form-table">
+                  <tbody>
+                    <tr>
+                      <th scope="row"><label for="crypto-tx-hash">Transaction Hash <span class="form-required">*</span></label></th>
+                      <td>
+                        <input
+                          id="crypto-tx-hash"
+                          name="tx_hash"
+                          type="text"
+                          class="form-input"
+                          placeholder="Enter confirmed blockchain transaction hash"
+                          required
+                        />
+                        <button type="submit" class="btn btn-primary">Submit for Blockchain Verification</button>
+                        <span class="form-hint">Submitted hashes are verified on-chain by the server before an order is marked Paid.</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </form>
+              <div id="crypto-tx-feedback" class="inline-message" role="status" aria-live="polite"></div>
+            </div>
+
+            <!-- TAB 3: CONTACT SELLER / MANUAL PAYMENT -->
+            <div id="payment-pane-manual" class="payment-pane" role="tabpanel">
+              <h2 class="payment-pane-title">Contact Seller / Manual Payment Arrangement</h2>
+
+              <table class="data-table section-gap">
+                <tbody>
+                  <tr>
+                    <th scope="row" class="receipt-label-col">Order Reference</th>
+                    <td id="manual-order-ref" class="num"><strong>&mdash;</strong></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Total Amount</th>
+                    <td id="manual-total-amount" class="price"><strong>$0.00 USD</strong></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Payment Status</th>
+                    <td><span id="manual-payment-status" class="pay-status-pending">Pending</span></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h3 class="product-desc-heading">Manual Payment Instructions</h3>
+              <ol class="instruction-list">
+                <li>Submit the inquiry form below referencing your Order Reference ID and preferred manual payment method.</li>
+                <li>Wait for confirmation of payment instructions before sending a bank transfer or postal money order.</li>
+                <li>Once funds are received and reconciled by an administrator, your order payment status will be updated to <strong>Paid</strong>.</li>
+              </ol>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <span>Submit Manual Payment Inquiry</span>
+                </div>
+                <form id="manual-payment-inquiry-form" novalidate>
+                  <table class="form-table">
+                    <tbody>
+                      <tr>
+                        <th scope="row"><label for="manual-inquiry-order-ref">Order Reference</label></th>
+                        <td><input id="manual-inquiry-order-ref" name="order_ref" type="text" class="form-input" readonly /></td>
+                      </tr>
+                      <tr>
+                        <th scope="row"><label for="manual-inquiry-name">Your Name <span class="form-required">*</span></label></th>
+                        <td><input id="manual-inquiry-name" name="buyer_name" type="text" class="form-input" required /></td>
+                      </tr>
+                      <tr>
+                        <th scope="row"><label for="manual-inquiry-email">Your Email <span class="form-required">*</span></label></th>
+                        <td><input id="manual-inquiry-email" name="buyer_email" type="email" class="form-input" required /></td>
+                      </tr>
+                      <tr>
+                        <th scope="row"><label for="manual-method-select">Preferred Method</label></th>
+                        <td>
+                          <select id="manual-method-select" name="manual_method" class="form-select">
+                            <option value="Bank Transfer">Bank Transfer / Wire</option>
+                            <option value="Postal Money Order">Postal Money Order</option>
+                            <option value="Local Cash Pickup">Local Cash Pickup</option>
+                          </select>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th scope="row"><label for="manual-inquiry-msg">Payment Inquiry Message <span class="form-required">*</span></label></th>
+                        <td>
+                          <textarea
+                            id="manual-inquiry-msg"
+                            name="inquiry_message"
+                            class="form-textarea"
+                            placeholder="Request bank wire instructions, payment reference details, or local pickup scheduling..."
+                            required
+                          ></textarea>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="panel-footer">
+                    <span>Your inquiry is recorded in the order ledger and queued for seller/admin follow-up.</span>
+                    <button type="submit" class="btn btn-primary">Send Payment Inquiry</button>
+                  </div>
+                </form>
+                <div class="panel-body">
+                  <div id="manual-inquiry-feedback" class="inline-message" role="status" aria-live="polite"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Authoritative Order Payment Transactions Table -->
+          <section class="panel" aria-labelledby="payment-history-heading">
+            <div class="panel-header panel-header-dark">
+              <span id="payment-history-heading">Order Payment Transactions</span>
+              <a href="orders.html">View Order Confirmation &raquo;</a>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Payment Ref</th>
+                  <th scope="col">Payment Method</th>
+                  <th scope="col" class="col-right">Amount</th>
+                  <th scope="col" class="col-center">Currency</th>
+                  <th scope="col">Transaction Ref</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Date (UTC)</th>
+                </tr>
+              </thead>
+              <tbody id="payment-history-body">
+                <tr>
+                  <td colspan="7" class="text-center text-muted">No payment transactions recorded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Shared Footer -->
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="index.html">Home</a> |
+        <a href="marketplace.html">Marketplace</a> |
+        <a href="categories.html">Categories</a> |
+        <a href="cart.html">Shopping Cart</a> |
+        <a href="checkout.html">Checkout</a> |
+        <a href="payment.html">Payment</a> |
+        <a href="orders.html">Order Lookup</a> |
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-meta">
+        Copyright &copy; 2001&ndash;2026 RetroMarket Online Directory. All rights reserved.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,294 @@
+/* ==========================================================================
+   RetroMarket — Private Administrator Control Panel Stylesheet
+   Classic Early-2000s Administration Panel Aesthetic
+   ========================================================================== */
+
+.admin-session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  background-color: #EEF3F8;
+  border-bottom: 1px solid var(--rm-border);
+  font-size: 11px;
+  color: var(--rm-text);
+}
+
+.admin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px;
+  background-color: #FFFFFF;
+}
+
+.admin-stat-box {
+  border: 1px solid var(--rm-border);
+  background-color: var(--rm-light-gray);
+  padding: 8px 10px;
+}
+
+.admin-stat-box-highlight {
+  background-color: #FFF9E6;
+  border-color: #C9A654;
+}
+
+.admin-stat-label {
+  font-size: 10px;
+  color: var(--rm-text-muted);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.admin-stat-number {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--rm-dark-blue);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-stat-sub {
+  font-size: 10px;
+  color: var(--rm-text-muted);
+  margin-top: 2px;
+}
+
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  background-color: var(--rm-light-gray);
+  border-bottom: 1px solid var(--rm-border);
+  padding: 6px 8px 0 8px;
+  gap: 3px;
+}
+
+.admin-tab-btn {
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--rm-dark-blue);
+  background-color: #E2E7EC;
+  border: 1px solid var(--rm-border);
+  border-bottom: none;
+  cursor: pointer;
+}
+
+.admin-tab-btn:hover {
+  background-color: #FFFFFF;
+}
+
+.admin-tab-btn.is-active {
+  background-color: #FFFFFF;
+  color: var(--rm-text);
+  border-top: 2px solid var(--rm-primary);
+  margin-bottom: -1px;
+  padding-bottom: 6px;
+}
+
+.sidebar-cat-link.is-active {
+  font-weight: bold;
+  color: var(--rm-dark-blue);
+  background-color: #E9EFF5;
+}
+
+.admin-section {
+  display: none;
+}
+
+.admin-section.is-active {
+  display: block;
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background-color: var(--rm-light-gray);
+  border-bottom: 1px solid var(--rm-border);
+}
+
+.admin-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-detail-drawer {
+  margin: 10px;
+  border: 1px solid var(--rm-primary);
+  background-color: #FFFFFF;
+}
+
+.admin-detail-drawer.is-hidden {
+  display: none;
+}
+
+.admin-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--rm-border);
+}
+
+.admin-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  background-color: var(--rm-light-gray);
+  border-top: 1px solid var(--rm-border);
+}
+
+.admin-action-cell {
+  white-space: nowrap;
+}
+
+.admin-action-cell .btn + .btn,
+.admin-action-cell a.btn + .btn,
+.admin-action-cell .btn + a.btn {
+  margin-left: 3px;
+}
+
+.btn-danger {
+  background-color: #9E2A2B;
+  color: #FFFFFF;
+  border-color: #6B1A1B;
+}
+
+.btn-danger:hover {
+  background-color: #7D1F20;
+  color: #FFFFFF;
+}
+
+.admin-status-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: bold;
+  border: 1px solid var(--rm-border);
+  background-color: var(--rm-light-gray);
+  white-space: nowrap;
+}
+
+.order-status-pending,
+.badge-pending {
+  color: #8A5300;
+  background-color: #FFF7DF;
+  border-color: #C9A654;
+}
+
+.order-status-processing,
+.badge-role {
+  color: #1F3A56;
+  background-color: #E7F0F7;
+  border-color: #8CA8C2;
+}
+
+.order-status-shipped {
+  color: #2B4C7E;
+  background-color: #EBF1FA;
+  border-color: #88A3C7;
+}
+
+.order-status-completed,
+.badge-active {
+  color: #1B6B2E;
+  background-color: #E9F6EC;
+  border-color: #7BB688;
+}
+
+.order-status-cancelled,
+.badge-inactive {
+  color: #9B1C1C;
+  background-color: #FCEBEB;
+  border-color: #C97D7D;
+}
+
+.badge-activity-type {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--rm-dark-blue);
+  background-color: #E7EFF6;
+  border: 1px solid #A8BFD4;
+  white-space: nowrap;
+}
+
+.admin-image-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.admin-image-preview img {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  border: 1px solid var(--rm-border);
+  background-color: #FFFFFF;
+}
+
+.admin-logo-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.admin-logo-preview img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  border: 1px solid var(--rm-border);
+  background-color: #FFFFFF;
+  padding: 2px;
+}
+
+.admin-checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 14px;
+  font-size: 11px;
+}
+
+.admin-wallet-input {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+}
+
+.admin-login-shell {
+  max-width: 540px;
+  margin: 28px auto;
+}
+
+.admin-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--rm-link);
+  font-family: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 780px) {
+  .admin-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .admin-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

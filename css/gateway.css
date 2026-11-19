@@ -1,0 +1,408 @@
+/* ==========================================================================
+   RetroMarket — CyberSource-Style "Payment Details" Purchase-Only Modal
+   Hidden by default; displayed ONLY when actively initiating card payment
+   during checkout or on payment.html.
+   Strictly adheres to CSP (style-src 'self', zero inline styles).
+   ========================================================================== */
+
+.rm-gateway-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background-color: rgba(243, 244, 246, 0.9);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.rm-gateway-overlay.is-open {
+  display: flex;
+}
+
+.cs-gw-card {
+  width: 100%;
+  max-width: 480px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #333333;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.cs-gw-card *,
+.cs-gw-card *::before,
+.cs-gw-card *::after {
+  box-sizing: border-box;
+}
+
+/* Header */
+.cs-gw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.cs-gw-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #333333;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.cs-gw-padlock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Required Indicator & Subtle Order Context Row */
+.cs-gw-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  margin-bottom: 14px;
+}
+
+.cs-gw-order-context {
+  font-size: 11px;
+  color: #666666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-gw-required-note {
+  font-size: 11px;
+  color: #555555;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Field Blocks */
+.cs-gw-field {
+  margin-bottom: 16px;
+}
+
+.cs-gw-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 6px;
+}
+
+.cs-gw-req {
+  color: #333333;
+  font-weight: 700;
+}
+
+/* Card Type 2x2 Grid */
+.cs-gw-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  row-gap: 10px;
+  column-gap: 14px;
+  max-width: 390px;
+  margin-top: 8px;
+}
+
+.cs-gw-card-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #444444;
+  user-select: none;
+}
+
+.cs-gw-card-option input[type="radio"] {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  accent-color: #2563eb;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cs-gw-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 26px;
+  border-radius: 3px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.cs-gw-badge-amex {
+  border-color: #016fd0;
+  background-color: #016fd0;
+}
+
+.cs-gw-brand-text {
+  font-size: 13px;
+  color: #444444;
+  font-weight: 400;
+}
+
+/* Inputs & Selects */
+.cs-gw-input,
+.cs-gw-select {
+  height: 32px;
+  padding: 4px 8px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  color: #333333;
+  background-color: #ffffff;
+  border: 1px solid #b5b5b5;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+
+.cs-gw-input:focus,
+.cs-gw-select:focus {
+  border-color: #4b7bec;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 2px rgba(75, 123, 236, 0.16);
+}
+
+.cs-gw-input.is-invalid,
+.cs-gw-select.is-invalid {
+  border-color: #c41e1e;
+}
+
+.cs-gw-input-card {
+  width: 220px;
+  max-width: 100%;
+  letter-spacing: 0.4px;
+}
+
+/* Expiration Side-by-Side */
+.cs-gw-exp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.cs-gw-exp-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-gw-select-exp {
+  width: 110px;
+  cursor: pointer;
+}
+
+/* CVN Section */
+.cs-gw-cvn-help {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: #666666;
+  line-height: 1.38;
+  max-width: 340px;
+}
+
+.cs-gw-cvn-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cs-gw-input-cvn {
+  width: 75px;
+}
+
+.cs-gw-cvn-diagram {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Inline Validation Errors */
+.cs-gw-error {
+  display: none;
+  margin-top: 5px;
+  font-size: 11px;
+  color: #c41e1e;
+  line-height: 1.3;
+}
+
+.cs-gw-error.is-visible {
+  display: block;
+}
+
+/* Next Button Row */
+.cs-gw-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.cs-gw-next-btn {
+  width: 120px;
+  height: 34px;
+  background: linear-gradient(to bottom, #ffffff 0%, #f3f4f6 100%);
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #333333;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.cs-gw-next-btn:hover {
+  background: linear-gradient(to bottom, #f9fafb 0%, #e5e7eb 100%);
+  border-color: #6b7280;
+}
+
+.cs-gw-next-btn:active {
+  background: #e5e7eb;
+}
+
+/* Footer Divider & Cancel Order Link */
+.cs-gw-footer {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cs-gw-cancel-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  color: #0000ee;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cs-gw-cancel-link:hover {
+  color: #0000aa;
+}
+
+.cs-gw-cancel-link:visited {
+  color: #551a8b;
+}
+
+/* Confirmation View (Inside Same 480px Card) */
+.cs-gw-view-hidden {
+  display: none;
+}
+
+.cs-gw-confirm-banner {
+  background-color: #f3f9f3;
+  border: 1px solid #a7d7a9;
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-top: 14px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: #1f5c24;
+}
+
+.cs-gw-confirm-banner strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+
+.cs-gw-confirm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+
+.cs-gw-confirm-table th,
+.cs-gw-confirm-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.cs-gw-confirm-table th {
+  width: 42%;
+  color: #555555;
+  font-weight: 700;
+  background-color: #f9fafb;
+}
+
+.cs-gw-confirm-table td {
+  color: #222222;
+  font-weight: 400;
+}
+
+.cs-gw-confirm-note {
+  font-size: 11px;
+  color: #666666;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  padding: 9px 10px;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+
+.cs-gw-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cs-gw-secondary-btn {
+  height: 34px;
+  padding: 0 14px;
+  background: #ffffff;
+  border: 1px solid #b5b5b5;
+  border-radius: 4px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #444444;
+  cursor: pointer;
+}
+
+.cs-gw-secondary-btn:hover {
+  background: #f3f4f6;
+}
+
+@media (max-width: 520px) {
+  .cs-gw-card {
+    padding: 18px;
+  }
+
+  .cs-gw-card-grid {
+    column-gap: 10px;
+  }
+
+  .cs-gw-input-card {
+    width: 100%;
+  }
+}

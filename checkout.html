@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout — RetroMarket</title>
+  <meta name="description" content="Review your order summary, enter shipping information, select a payment method, and place a guest order on RetroMarket." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/marketplace.css" />
+  <link rel="stylesheet" href="css/gateway.css" />
+  <script src="js/products.js" defer></script>
+  <script src="js/cart.js" defer></script>
+  <script src="js/app.js" defer></script>
+  <script src="js/cybersource-gateway.js" defer></script>
+  <script src="js/checkout.js" defer></script>
+</head>
+<body>
+  <div class="page-wrapper">
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span>Welcome, <strong>Guest Visitor</strong></span>
+        <span class="utility-sep">|</span>
+        <span id="current-date-display"></span>
+      </div>
+      <div class="utility-right">
+        <a href="orders.html" class="utility-link">Order Lookup</a>
+        <span class="utility-sep">|</span>
+        <a href="cart.html" class="utility-cart-link">
+          <img src="assets/icons/cart.svg" alt="" width="14" height="14" />
+          <span>Shopping Cart (<span class="js-cart-count num">0</span>)</span>
+        </a>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <a href="index.html" class="brand-block">
+        <img src="assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Classic Online Buying &amp; Selling Directory &mdash; Est. 2001</span>
+        </span>
+      </a>
+      <form id="header-search-form" class="header-search" action="marketplace.html" method="get" role="search">
+        <label for="header-search-input" class="sr-only">Search listings</label>
+        <input id="header-search-input" type="text" name="q" class="header-search-input" placeholder="Search products, sellers, IDs..." />
+        <label for="header-search-category" class="sr-only">Category</label>
+        <select id="header-search-category" name="cat" class="header-search-select">
+          <option value="all">All Categories</option>
+        </select>
+        <button type="submit" class="header-search-btn">Search</button>
+      </form>
+    </header>
+
+    <nav class="main-nav" aria-label="Primary Navigation">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
+        <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
+        <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
+        <li class="nav-item"><a href="cart.html" class="nav-link active">Shopping Cart (<span class="js-cart-count num">0</span>)</a></li>
+        <li class="nav-item"><a href="contact.html" class="nav-link">Contact</a></li>
+      </ul>
+    </nav>
+
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-trail">
+        You are here: <a href="index.html">RetroMarket</a> &raquo; <a href="cart.html">Shopping Cart</a> &raquo; <span class="breadcrumb-current">Checkout</span>
+      </div>
+      <div class="nowrap"><a href="cart.html">&laquo; Edit Shopping Cart</a></div>
+    </div>
+
+    <div class="layout-body">
+      <!-- Left Sidebar: Live Order Totals -->
+      <aside class="sidebar" aria-label="Order Summary Sidebar">
+        <section class="panel">
+          <div class="panel-header"><span>Checkout Totals</span></div>
+          <table class="sidebar-stat-table">
+            <tbody>
+              <tr>
+                <td class="sidebar-stat-label">Product Quantities</td>
+                <td id="checkout-item-count" class="sidebar-stat-val">0</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label">Subtotal</td>
+                <td id="checkout-subtotal" class="sidebar-stat-val">$0.00</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label">Shipping Cost</td>
+                <td id="checkout-shipping" class="sidebar-stat-val">$0.00</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label"><strong>Total Amount</strong></td>
+                <td id="checkout-grand-total" class="sidebar-stat-val">$0.00</td>
+              </tr>
+              <tr>
+                <td class="sidebar-stat-label">Payment Method</td>
+                <td id="checkout-selected-method" class="sidebar-stat-val">CyberSource</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="panel-footer">
+            <a href="cart.html">&laquo; Modify Cart</a>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Guest Checkout Policy</span></div>
+          <div class="panel-body">
+            <ul class="sidebar-guidelines">
+              <li>No customer account or password is required to place an order.</li>
+              <li>All item prices, stock availability, and totals are verified on the server before your order is created.</li>
+              <li>Save your Order Reference ID and Email Address to track status on <a href="orders.html">Order Lookup</a>.</li>
+            </ul>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Main Checkout Content -->
+      <main class="main-content">
+        <!-- Empty Cart Protection Banner -->
+        <section id="checkout-empty-guard" class="panel is-hidden">
+          <div class="panel-header panel-header-dark">
+            <span>Empty Shopping Cart</span>
+          </div>
+          <div class="panel-body">
+            <p><strong>Checkout cannot proceed with an empty shopping cart.</strong></p>
+            <p class="text-muted">Please add at least one available product from the RetroMarket catalog before completing checkout.</p>
+            <div class="sidebar-actions">
+              <a href="marketplace.html" class="btn btn-primary">Browse Marketplace &raquo;</a>
+              <a href="cart.html" class="btn">View Shopping Cart</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Post-Submission Order Confirmation -->
+        <div id="checkout-confirmation-section" class="is-hidden"></div>
+
+        <!-- Active Checkout Form & Order Summary -->
+        <div id="checkout-form-section">
+          <div id="checkout-error-box" class="error-box section-gap" role="alert" aria-live="assertive"></div>
+
+          <!-- Order Summary Table -->
+          <section class="panel section-gap" aria-labelledby="order-summary-heading">
+            <div class="panel-header">
+              <h1 id="order-summary-heading" class="panel-title">1. Order Summary</h1>
+              <a href="cart.html">Edit Quantities &raquo;</a>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Product</th>
+                  <th scope="col" class="col-center">Qty</th>
+                  <th scope="col" class="col-right">Unit Price</th>
+                  <th scope="col" class="col-right">Line Total</th>
+                </tr>
+              </thead>
+              <tbody id="checkout-summary-body">
+                <tr>
+                  <td colspan="4" class="text-center text-muted">Loading order summary...</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Customer & Shipping Form + Payment Method Selection -->
+          <form id="checkout-form" novalidate>
+            <section class="panel section-gap" aria-labelledby="shipping-form-heading">
+              <div class="panel-header panel-header-dark">
+                <span id="shipping-form-heading">2. Customer &amp; Shipping Information</span>
+                <span class="panel-header-sub">Fields marked <span class="form-required">*</span> are required</span>
+              </div>
+              <table class="form-table">
+                <tbody>
+                  <tr>
+                    <th scope="row"><label for="chk-full-name">Full Name <span class="form-required">*</span></label></th>
+                    <td>
+                      <input id="chk-full-name" name="full_name" type="text" class="form-input" autocomplete="name" required />
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="chk-email">Email Address <span class="form-required">*</span></label></th>
+                    <td>
+                      <input id="chk-email" name="email" type="email" class="form-input" autocomplete="email" placeholder="buyer@example.com" required />
+                      <span class="form-hint">Your Order Reference ID and this email address are required for Order Lookup and payment access.</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="chk-phone">Phone Number <span class="form-required">*</span></label></th>
+                    <td>
+                      <input id="chk-phone" name="phone" type="tel" class="form-input" autocomplete="tel" placeholder="+1 (555) 234-5678" required />
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="chk-country">Country <span class="form-required">*</span></label></th>
+                    <td>
+                      <select id="chk-country" name="country" class="form-select" required>
+                        <option value="">-- Select Country --</option>
+                        <option value="United States">United States</option>
+                        <option value="Canada">Canada</option>
+                        <option value="United Kingdom">United Kingdom</option>
+                        <option value="Germany">Germany</option>
+                        <option value="Japan">Japan</option>
+                        <option value="Australia">Australia</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="chk-city">City <span class="form-required">*</span></label></th>
+                    <td>
+                      <input id="chk-city" name="city" type="text" class="form-input" autocomplete="address-level2" required />
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="chk-address">Shipping Address <span id="shipping-address-required-flag" class="form-required">*</span></label></th>
+                    <td>
+                      <input id="chk-address" name="shipping_address" type="text" class="form-input" autocomplete="street-address" placeholder="Street address, apartment, postal/ZIP code" required />
+                      <span id="shipping-address-hint" class="form-hint">Required for physical item delivery.</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="chk-notes">Additional Notes</label></th>
+                    <td>
+                      <textarea id="chk-notes" name="notes" class="form-textarea" placeholder="Optional delivery instructions, packaging preferences, or seller notes..."></textarea>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+
+            <!-- Payment Method Selection -->
+            <section class="panel" aria-labelledby="payment-method-heading">
+              <div class="panel-header panel-header-dark">
+                <span id="payment-method-heading">3. Payment Method Selection</span>
+                <span class="panel-header-sub">Complete payment on the next step</span>
+              </div>
+              <div class="payment-option-list" role="radiogroup" aria-labelledby="payment-method-heading">
+                <label class="payment-option is-selected">
+                  <input type="radio" name="payment_method" value="cybersource" checked />
+                  <span>
+                    <span class="payment-option-title">1. CyberSource Hosted Checkout</span>
+                    <span class="payment-option-desc">
+                      Pay via CyberSource Secure Acceptance Hosted Checkout for Visa, MasterCard, and debit cards. No card numbers are collected or stored on RetroMarket.
+                    </span>
+                  </span>
+                </label>
+
+                <label class="payment-option">
+                  <input type="radio" name="payment_method" value="cryptocurrency" />
+                  <span>
+                    <span class="payment-option-title">2. Cryptocurrency (BTC / ETH / USDT)</span>
+                    <span class="payment-option-desc">
+                      Generate a time-limited Bitcoin (BTC), Ethereum (ETH), or Tether (USDT) payment invoice with server-side blockchain verification.
+                    </span>
+                  </span>
+                </label>
+
+                <label class="payment-option">
+                  <input type="radio" name="payment_method" value="manual" />
+                  <span>
+                    <span class="payment-option-title">3. Contact Seller / Manual Payment</span>
+                    <span class="payment-option-desc">
+                      Coordinate directly with the seller after placing the order to pay by postal money order, bank transfer, or local cash pickup.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <div class="panel-footer">
+                <a href="cart.html" class="btn">&laquo; Return to Shopping Cart</a>
+                <button id="checkout-submit-btn" type="submit" class="btn btn-primary">
+                  Place Guest Order &raquo;
+                </button>
+              </div>
+            </section>
+          </form>
+        </div>
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="index.html">Home</a> |
+        <a href="marketplace.html">Marketplace</a> |
+        <a href="categories.html">Categories</a> |
+        <a href="cart.html">Shopping Cart</a> |
+        <a href="checkout.html">Checkout</a> |
+        <a href="payment.html">Payment</a> |
+        <a href="orders.html">Order Lookup</a> |
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-meta">
+        Copyright &copy; 2001&ndash;2026 RetroMarket Online Directory. All rights reserved.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

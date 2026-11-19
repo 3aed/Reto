@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketplace Catalog — RetroMarket</title>
+  <meta name="description" content="Browse active product listings on RetroMarket with search, category filtering, price filtering, and sorting." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/marketplace.css" />
+  <script src="js/products.js" defer></script>
+  <script src="js/cart.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <div class="page-wrapper">
+    <div class="utility-bar">
+      <div class="utility-left">
+        <span>Welcome, <strong>Guest Visitor</strong></span>
+        <span class="utility-sep">|</span>
+        <span id="current-date-display"></span>
+      </div>
+      <div class="utility-right">
+        <a href="orders.html" class="utility-link">Order Lookup</a>
+        <span class="utility-sep">|</span>
+        <a href="cart.html" class="utility-cart-link">
+          <img src="assets/icons/cart.svg" alt="" width="14" height="14" />
+          <span>Shopping Cart (<span class="js-cart-count num">0</span>)</span>
+        </a>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <a href="index.html" class="brand-block">
+        <img src="assets/icons/logo-mark.svg" alt="RetroMarket Logo" class="brand-logo" width="38" height="38" />
+        <span class="brand-text">
+          <span class="brand-name">RetroMarket</span>
+          <span class="brand-tagline">Classic Online Buying &amp; Selling Directory</span>
+        </span>
+      </a>
+      <form id="header-search-form" class="header-search" action="marketplace.html" method="get" role="search">
+        <label for="header-search-input" class="sr-only">Search listings</label>
+        <input id="header-search-input" type="text" name="q" class="header-search-input" placeholder="Search products, sellers, IDs..." />
+        <label for="header-search-category" class="sr-only">Category</label>
+        <select id="header-search-category" name="cat" class="header-search-select">
+          <option value="all">All Categories</option>
+        </select>
+        <button type="submit" class="header-search-btn">Search</button>
+      </form>
+    </header>
+
+    <nav class="main-nav" aria-label="Primary Navigation">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
+        <li class="nav-item"><a href="marketplace.html" class="nav-link active" aria-current="page">Marketplace</a></li>
+        <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
+        <li class="nav-item"><a href="cart.html" class="nav-link">Shopping Cart (<span class="js-cart-count num">0</span>)</a></li>
+        <li class="nav-item"><a href="contact.html" class="nav-link">Contact</a></li>
+      </ul>
+    </nav>
+
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-trail">
+        You are here: <a href="index.html">RetroMarket</a> &raquo; <span class="breadcrumb-current">Marketplace Catalog</span>
+      </div>
+      <div class="nowrap">
+        <a href="categories.html">Category Directory</a> &middot; <a href="marketplace.html">Reset All Filters</a>
+      </div>
+    </div>
+
+    <div id="cart-feedback-bar" class="cart-feedback-bar" role="status" aria-live="polite">
+      <div>
+        <strong id="cart-feedback-text">Item added to cart.</strong>
+        &nbsp;<a href="cart.html">View Shopping Cart &raquo;</a>
+      </div>
+      <button id="cart-feedback-dismiss" type="button" class="btn btn-compact">Dismiss</button>
+    </div>
+
+    <div class="layout-body">
+      <aside class="sidebar" aria-label="Catalog Filters Sidebar">
+        <section class="panel">
+          <div class="panel-header"><span>Categories</span></div>
+          <ul class="sidebar-list" data-dynamic-sidebar-categories="with-all">
+            <li class="text-muted"><span class="sidebar-cat-link">Loading categories...</span></li>
+          </ul>
+          <div class="panel-footer"><a href="categories.html">Full Category Index &raquo;</a></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Quick Price Filter</span></div>
+          <ul class="sidebar-list">
+            <li><a href="marketplace.html?max=35" class="sidebar-cat-link"><span>Under 35.00</span></a></li>
+            <li><a href="marketplace.html?min=35&amp;max=80" class="sidebar-cat-link"><span>35.00 &ndash; 80.00</span></a></li>
+            <li><a href="marketplace.html?min=80" class="sidebar-cat-link"><span>80.00 and Above</span></a></li>
+          </ul>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><span>Active Sellers</span></div>
+          <ul class="sidebar-list" data-dynamic-sidebar-sellers>
+            <li class="text-muted"><span class="sidebar-cat-link">Loading sellers...</span></li>
+          </ul>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <section class="panel" aria-labelledby="catalog-heading">
+          <div class="panel-header panel-header-dark">
+            <h1 id="catalog-heading" class="panel-title">RetroMarket Product Catalog</h1>
+            <span id="marketplace-filter-summary" class="panel-header-sub">Loading catalog...</span>
+          </div>
+
+          <div class="filter-bar">
+            <form id="marketplace-filter-form" class="filter-form">
+              <div class="filter-group">
+                <label for="marketplace-search-input"><strong>Search:</strong></label>
+                <input id="marketplace-search-input" type="text" class="filter-input filter-input-keyword" placeholder="Keyword, seller, or ID..." />
+              </div>
+
+              <div class="filter-group">
+                <label for="marketplace-cat-filter"><strong>Category:</strong></label>
+                <select id="marketplace-cat-filter" class="filter-select">
+                  <option value="all">All Categories</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label for="marketplace-min-price"><strong>Price:</strong></label>
+                <input id="marketplace-min-price" type="number" min="0" step="1" class="filter-input filter-input-price" placeholder="Min" aria-label="Minimum price" />
+                <span>to</span>
+                <input id="marketplace-max-price" type="number" min="0" step="1" class="filter-input filter-input-price" placeholder="Max" aria-label="Maximum price" />
+              </div>
+
+              <div class="filter-group">
+                <label for="marketplace-sort-select"><strong>Sort:</strong></label>
+                <select id="marketplace-sort-select" class="filter-select">
+                  <option value="newest">Newest First</option>
+                  <option value="price-asc">Price: Lowest First</option>
+                  <option value="price-desc">Price: Highest First</option>
+                  <option value="name-asc">Product Name (A–Z)</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <button type="submit" class="btn btn-primary btn-compact">Apply</button>
+                <button type="button" id="marketplace-reset-btn" class="btn btn-compact">Reset</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="marketplace-active-filters" class="active-filter-strip">
+            <span>Loading catalog filter summary...</span>
+          </div>
+
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col" class="col-center">Photo</th>
+                <th scope="col">Product Listing</th>
+                <th scope="col">Category</th>
+                <th scope="col">Seller</th>
+                <th scope="col">Condition</th>
+                <th scope="col">Availability</th>
+                <th scope="col" class="col-right">Price</th>
+              </tr>
+            </thead>
+            <tbody id="marketplace-listings-body">
+              <tr>
+                <td colspan="7" class="text-center text-muted">Loading marketplace catalog...</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="panel-footer">
+            <span>Click any product thumbnail or title to open full specifications and seller details.</span>
+            <a href="categories.html">Browse by Category &raquo;</a>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="index.html">Home</a> |
+        <a href="marketplace.html">Marketplace</a> |
+        <a href="categories.html">Categories</a> |
+        <a href="cart.html">Shopping Cart</a> |
+        <a href="checkout.html">Checkout</a> |
+        <a href="payment.html">Payment</a> |
+        <a href="orders.html">Order Lookup</a> |
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-meta">
+        Copyright &copy; RetroMarket Online Directory. All rights reserved.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
