@@ -104,14 +104,14 @@
       .map(
         (prod) => `
       <tr>
-        <td>${
+        <td data-label="Product">${
           prod.id
             ? '<a href="product.html?id=' + encodeURIComponent(prod.id) + '"><strong>' + escapeHtml(prod.name) + '</strong></a>'
             : '<strong>' + escapeHtml(prod.name) + '</strong>'
         }</td>
-        <td class="col-center num">${prod.qty}</td>
-        <td class="col-right price">${formatPrice(prod.unitPrice, order.currency)}</td>
-        <td class="col-right price"><strong>${formatPrice(prod.lineTotal, order.currency)}</strong></td>
+        <td data-label="Qty" class="col-center num">${prod.qty}</td>
+        <td data-label="Unit Price" class="col-right price">${formatPrice(prod.unitPrice, order.currency)}</td>
+        <td data-label="Line Total" class="col-right price"><strong>${formatPrice(prod.lineTotal, order.currency)}</strong></td>
       </tr>`
       )
       .join('');
@@ -131,34 +131,38 @@
           <span>Order Confirmation &mdash; ${escapeHtml(order.orderNumber)}</span>
           <span class="panel-header-sub">${escapeHtml(order.createdAt)} UTC</span>
         </div>
-        <table class="data-table">
-          <tbody>
-            <tr><th scope="row" class="receipt-label-col">Order Reference ID</th><td class="num"><strong>${escapeHtml(order.orderNumber)}</strong></td></tr>
-            <tr><th scope="row">Order Status</th><td><strong>${escapeHtml(order.orderStatus)}</strong></td></tr>
-            <tr><th scope="row">Payment Method</th><td><strong>${escapeHtml(order.paymentMethodLabel)}</strong></td></tr>
-            <tr><th scope="row">Payment Status</th><td><span class="${getStatusClass(order.paymentStatus)}">${escapeHtml(order.paymentStatus)}</span></td></tr>
-            <tr><th scope="row">Customer Name</th><td>${escapeHtml(order.customer.fullName)}</td></tr>
-            <tr><th scope="row">Contact Email &amp; Phone</th><td>${escapeHtml(order.customer.email)} &middot; ${escapeHtml(order.customer.phone)}</td></tr>
-            <tr><th scope="row">Delivery Destination</th><td>${escapeHtml(shippingDisplay)}</td></tr>
-            ${
-              order.customer.notes
-                ? `<tr><th scope="row">Additional Notes</th><td>${escapeHtml(order.customer.notes)}</td></tr>`
-                : ''
-            }
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="data-table kv-table">
+            <tbody>
+              <tr><th scope="row" class="receipt-label-col">Order Reference ID</th><td class="num"><strong>${escapeHtml(order.orderNumber)}</strong></td></tr>
+              <tr><th scope="row">Order Status</th><td><strong>${escapeHtml(order.orderStatus)}</strong></td></tr>
+              <tr><th scope="row">Payment Method</th><td><strong>${escapeHtml(order.paymentMethodLabel)}</strong></td></tr>
+              <tr><th scope="row">Payment Status</th><td><span class="${getStatusClass(order.paymentStatus)}">${escapeHtml(order.paymentStatus)}</span></td></tr>
+              <tr><th scope="row">Customer Name</th><td>${escapeHtml(order.customer.fullName)}</td></tr>
+              <tr><th scope="row">Contact Email &amp; Phone</th><td>${escapeHtml(order.customer.email)} &middot; ${escapeHtml(order.customer.phone)}</td></tr>
+              <tr><th scope="row">Delivery Destination</th><td>${escapeHtml(shippingDisplay)}</td></tr>
+              ${
+                order.customer.notes
+                  ? `<tr><th scope="row">Additional Notes</th><td>${escapeHtml(order.customer.notes)}</td></tr>`
+                  : ''
+              }
+            </tbody>
+          </table>
+        </div>
 
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th scope="col">Ordered Product</th>
-              <th scope="col" class="col-center">Qty</th>
-              <th scope="col" class="col-right">Unit Price</th>
-              <th scope="col" class="col-right">Line Total</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="data-table responsive-cards">
+            <thead>
+              <tr>
+                <th scope="col">Ordered Product</th>
+                <th scope="col" class="col-center">Qty</th>
+                <th scope="col" class="col-right">Unit Price</th>
+                <th scope="col" class="col-right">Line Total</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
 
         <div class="cart-totals-wrap">
           <table class="cart-totals-table">
@@ -252,13 +256,13 @@
             .map(
               (item) => `
             <tr>
-              <td>
+              <td data-label="Product">
                 <a href="product.html?id=${encodeURIComponent(item.id)}"><strong>${escapeHtml(item.name)}</strong></a>
                 <div class="listing-meta-row">Seller: ${escapeHtml(item.seller)}</div>
               </td>
-              <td class="col-center num">${item.qty}</td>
-              <td class="col-right price">${formatPrice(item.unitPrice)}</td>
-              <td class="col-right price"><strong>${formatPrice(item.lineTotal)}</strong></td>
+              <td data-label="Qty" class="col-center num">${item.qty}</td>
+              <td data-label="Unit Price" class="col-right price">${formatPrice(item.unitPrice)}</td>
+              <td data-label="Line Total" class="col-right price"><strong>${formatPrice(item.lineTotal)}</strong></td>
             </tr>`
             )
             .join('');
@@ -660,13 +664,13 @@
             .map(
               (p) => `
             <tr>
-              <td class="mono-ref">${escapeHtml(p.paymentRef)}</td>
-              <td>${escapeHtml(p.method)}${p.cryptoCurrency ? ' (' + escapeHtml(p.cryptoCurrency) + (p.cryptoNetwork ? ' / ' + escapeHtml(p.cryptoNetwork) : '') + ')' : ''}</td>
-              <td class="col-right price">${formatPrice(p.amount, p.currency)}</td>
-              <td class="col-center">${escapeHtml(p.currency)}</td>
-              <td class="mono-ref">${escapeHtml(p.transactionRef || '—')}</td>
-              <td><span class="${getStatusClass(p.status)}">${escapeHtml(p.status)}</span></td>
-              <td class="nowrap text-muted">${escapeHtml(p.createdAt)}</td>
+              <td data-label="Payment Ref" class="mono-ref">${escapeHtml(p.paymentRef)}</td>
+              <td data-label="Method">${escapeHtml(p.method)}${p.cryptoCurrency ? ' (' + escapeHtml(p.cryptoCurrency) + (p.cryptoNetwork ? ' / ' + escapeHtml(p.cryptoNetwork) : '') + ')' : ''}</td>
+              <td data-label="Amount" class="col-right price">${formatPrice(p.amount, p.currency)}</td>
+              <td data-label="Currency" class="col-center">${escapeHtml(p.currency)}</td>
+              <td data-label="Transaction Ref" class="mono-ref">${escapeHtml(p.transactionRef || '—')}</td>
+              <td data-label="Status"><span class="${getStatusClass(p.status)}">${escapeHtml(p.status)}</span></td>
+              <td data-label="Date (UTC)" class="nowrap text-muted">${escapeHtml(p.createdAt)}</td>
             </tr>`
             )
             .join('');

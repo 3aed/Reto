@@ -49,7 +49,14 @@
     </header>
 
     <nav class="main-nav" aria-label="Primary Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Navigation Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="primary-nav-list" aria-label="Toggle navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
         <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
         <li class="nav-item"><a href="categories.html" class="nav-link active" aria-current="page">Categories</a></li>
@@ -110,21 +117,23 @@
             <h1 id="categories-heading" class="panel-title">RetroMarket Category Directory</h1>
             <span class="panel-header-sub">Select any category to open filtered marketplace listings</span>
           </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Category</th>
-                <th scope="col">Department Scope &amp; Latest Listing</th>
-                <th scope="col" class="col-right">Products</th>
-                <th scope="col" class="col-center">Action</th>
-              </tr>
-            </thead>
-            <tbody id="categories-directory-body">
-              <tr>
-                <td colspan="4" class="text-center text-muted">Loading category index...</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col">Category</th>
+                  <th scope="col">Department Scope &amp; Latest Listing</th>
+                  <th scope="col" class="col-right">Products</th>
+                  <th scope="col" class="col-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="categories-directory-body">
+                <tr>
+                  <td colspan="4" class="text-center text-muted">Loading category index...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div class="panel-footer">
             <span>Counts reflect active listings currently indexed in the RetroMarket database.</span>
             <a href="marketplace.html">View All Products &raquo;</a>

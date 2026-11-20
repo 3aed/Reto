@@ -49,7 +49,14 @@
     </header>
 
     <nav class="main-nav" aria-label="Primary Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Navigation Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="primary-nav-list" aria-label="Toggle navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
         <li class="nav-item"><a href="marketplace.html" class="nav-link active">Marketplace</a></li>
         <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
@@ -153,28 +160,34 @@
         <div id="product-subgrid" class="product-subgrid">
           <section class="panel" aria-labelledby="specs-heading">
             <div class="panel-header"><span id="specs-heading">Technical Specifications</span></div>
-            <table class="data-table">
-              <tbody id="product-specs-body">
-                <tr><td class="text-muted">Loading specifications...</td></tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table kv-table">
+                <tbody id="product-specs-body">
+                  <tr><td class="text-muted">Loading specifications...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </section>
 
           <section class="panel" aria-labelledby="shipping-heading">
             <div class="panel-header"><span id="shipping-heading">Shipping &amp; Fulfillment Information</span></div>
-            <table class="data-table">
-              <tbody id="product-shipping-body">
-                <tr><td class="text-muted">Loading shipping details...</td></tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table kv-table">
+                <tbody id="product-shipping-body">
+                  <tr><td class="text-muted">Loading shipping details...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
 
         <section id="product-attributes-panel" class="panel is-hidden" aria-labelledby="attributes-heading">
           <div class="panel-header"><span id="attributes-heading">Additional Product Attributes</span></div>
-          <table class="data-table">
-            <tbody id="product-attributes-body"></tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table kv-table">
+              <tbody id="product-attributes-body"></tbody>
+            </table>
+          </div>
         </section>
 
         <section id="related-products-panel" class="panel" aria-labelledby="related-heading">
@@ -182,23 +195,25 @@
             <span id="related-heading">Related Products</span>
             <a href="marketplace.html">Browse Full Marketplace &raquo;</a>
           </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col" class="col-center">Photo</th>
-                <th scope="col">Product Name</th>
-                <th scope="col">Category</th>
-                <th scope="col">Condition</th>
-                <th scope="col">Availability</th>
-                <th scope="col" class="col-right">Price</th>
-              </tr>
-            </thead>
-            <tbody id="related-products-body">
-              <tr>
-                <td colspan="6" class="text-center text-muted">Loading related items...</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-center">Photo</th>
+                  <th scope="col">Product Name</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Condition</th>
+                  <th scope="col">Availability</th>
+                  <th scope="col" class="col-right">Price</th>
+                </tr>
+              </thead>
+              <tbody id="related-products-body">
+                <tr>
+                  <td colspan="6" class="text-center text-muted">Loading related items...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>

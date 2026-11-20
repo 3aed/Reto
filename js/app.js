@@ -41,6 +41,29 @@
     });
   }
 
+  function initMobileNav() {
+    document.querySelectorAll('.main-nav').forEach((nav) => {
+      const toggleBtn = nav.querySelector('.nav-toggle-btn');
+      if (!toggleBtn || toggleBtn.dataset.navBound === 'true') return;
+      toggleBtn.dataset.navBound = 'true';
+
+      const setOpen = (isOpen) => {
+        nav.classList.toggle('is-open', isOpen);
+        toggleBtn.setAttribute('aria-expanded', String(isOpen));
+      };
+
+      toggleBtn.addEventListener('click', () => {
+        setOpen(!nav.classList.contains('is-open'));
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && nav.classList.contains('is-open')) {
+          setOpen(false);
+        }
+      });
+    });
+  }
+
   function applyWebsiteSettings() {
     if (!window.RetroMarketData) return;
     const settings = window.RetroMarketData.getSettings();
@@ -287,10 +310,10 @@
           .map(
             (s) => `
           <tr>
-            <td><a href="marketplace.html?seller=${encodeURIComponent(s.username)}"><strong>${escapeHtml(s.username)}</strong></a></td>
-            <td>${escapeHtml(s.specialty || 'General')}</td>
-            <td class="col-right num">${Number(s.productCount || 0)}</td>
-            <td class="col-center num">${escapeHtml(s.joined || '')}</td>
+            <td data-label="Seller"><a href="marketplace.html?seller=${encodeURIComponent(s.username)}"><strong>${escapeHtml(s.username)}</strong></a></td>
+            <td data-label="Specialty">${escapeHtml(s.specialty || 'General')}</td>
+            <td data-label="Listings" class="col-right num">${Number(s.productCount || 0)}</td>
+            <td data-label="Member Since" class="col-center num">${escapeHtml(s.joined || '')}</td>
           </tr>`
           )
           .join('');
@@ -313,12 +336,12 @@
           .map(
             (item) => `
           <tr>
-            <td><a href="product.html?id=${encodeURIComponent(item.id)}"><strong>${escapeHtml(item.name)}</strong></a></td>
-            <td><a href="marketplace.html?cat=${encodeURIComponent(item.category)}">${escapeHtml(item.categoryName)}</a></td>
-            <td><a href="marketplace.html?seller=${encodeURIComponent(item.seller)}">${escapeHtml(item.seller)}</a></td>
-            <td>${escapeHtml(item.condition)}</td>
-            <td class="col-right price"><strong>${formatPrice(item.price)}</strong></td>
-            <td class="nowrap text-muted">${escapeHtml(formatDateShort(item.dateAdded))}</td>
+            <td data-label="Product Title"><a href="product.html?id=${encodeURIComponent(item.id)}"><strong>${escapeHtml(item.name)}</strong></a></td>
+            <td data-label="Category"><a href="marketplace.html?cat=${encodeURIComponent(item.category)}">${escapeHtml(item.categoryName)}</a></td>
+            <td data-label="Seller"><a href="marketplace.html?seller=${encodeURIComponent(item.seller)}">${escapeHtml(item.seller)}</a></td>
+            <td data-label="Condition">${escapeHtml(item.condition)}</td>
+            <td data-label="Price" class="col-right price"><strong>${formatPrice(item.price)}</strong></td>
+            <td data-label="Listed" class="nowrap text-muted">${escapeHtml(formatDateShort(item.dateAdded))}</td>
           </tr>`
           )
           .join('');
@@ -464,16 +487,16 @@
                 <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="listing-thumb" width="64" height="48" />
               </a>
             </td>
-            <td>
+            <td data-label="Product">
               <a href="product.html?id=${encodeURIComponent(item.id)}" class="listing-title-link">${escapeHtml(item.name)}</a>
               <div class="listing-snippet">${escapeHtml(shortDesc)}</div>
               <div class="listing-meta-row">ID #${item.id} &middot; Listed ${escapeHtml(formatDateShort(item.dateAdded))}</div>
             </td>
-            <td class="nowrap"><a href="marketplace.html?cat=${encodeURIComponent(item.category)}">${escapeHtml(item.categoryName)}</a></td>
-            <td class="nowrap"><a href="marketplace.html?seller=${encodeURIComponent(item.seller)}">${escapeHtml(item.seller)}</a></td>
-            <td class="nowrap">${escapeHtml(item.condition)}</td>
-            <td class="nowrap"><span class="${statusClass}">${escapeHtml(item.availability)}</span></td>
-            <td class="col-right nowrap">
+            <td data-label="Category" class="nowrap"><a href="marketplace.html?cat=${encodeURIComponent(item.category)}">${escapeHtml(item.categoryName)}</a></td>
+            <td data-label="Seller" class="nowrap"><a href="marketplace.html?seller=${encodeURIComponent(item.seller)}">${escapeHtml(item.seller)}</a></td>
+            <td data-label="Condition" class="nowrap">${escapeHtml(item.condition)}</td>
+            <td data-label="Availability" class="nowrap"><span class="${statusClass}">${escapeHtml(item.availability)}</span></td>
+            <td data-label="Price" class="col-right nowrap">
               <div class="price"><strong>${formatPrice(item.price)}</strong></div>
               <div class="listing-action-row">
                 <a href="product.html?id=${encodeURIComponent(item.id)}">Details</a>
@@ -552,16 +575,16 @@
 
       return `
         <tr>
-          <td class="nowrap">
+          <td data-label="Category" class="nowrap">
             <img src="assets/icons/folder.svg" alt="" width="14" height="14" />
             <a href="marketplace.html?cat=${encodeURIComponent(cat.slug)}"><strong>${escapeHtml(cat.name)}</strong></a>
           </td>
-          <td>
+          <td data-label="Department Scope">
             <div>${escapeHtml(cat.description || '')}</div>
             <div class="listing-meta-row">Latest item: ${latestHtml}</div>
           </td>
-          <td class="col-right num"><strong>${count}</strong></td>
-          <td class="col-center nowrap">
+          <td data-label="Products" class="col-right num"><strong>${count}</strong></td>
+          <td data-label="Action" class="col-center nowrap">
             <a href="marketplace.html?cat=${encodeURIComponent(cat.slug)}" class="btn btn-compact">Browse (${count})</a>
           </td>
         </tr>`;
@@ -611,7 +634,15 @@
     }
 
     const item = payload.product;
-    const seller = payload.seller;
+    const seller =
+      payload.seller ||
+      window.RetroMarketData.getSellerByUsername(item.seller) || {
+        username: item.seller || 'RetroMarket Seller',
+        location: 'Not specified',
+        specialty: 'General',
+        responseTime: 'Within 24 hours',
+        productCount: 0,
+      };
     const related = payload.related || [];
     const gallery = item.images && item.images.length > 0 ? item.images : [{ src: item.image, caption: item.name }];
     const statusClass = getAvailabilityClass(item);
@@ -689,7 +720,7 @@
                 <tr><td class="sidebar-stat-label">Location</td><td class="sidebar-stat-val">${escapeHtml(seller.location || 'Not specified')}</td></tr>
                 <tr><td class="sidebar-stat-label">Specialty</td><td class="sidebar-stat-val">${escapeHtml(seller.specialty || 'General')}</td></tr>
                 <tr><td class="sidebar-stat-label">Avg. Response</td><td class="sidebar-stat-val">${escapeHtml(seller.responseTime || 'Within 24 hours')}</td></tr>
-                <tr><td class="sidebar-stat-label">Catalog Items</td><td class="sidebar-stat-val"><a href="marketplace.html?seller=${encodeURIComponent(seller.username)}">${Number(seller.listingCount || 0)} active</a></td></tr>
+                <tr><td class="sidebar-stat-label">Catalog Items</td><td class="sidebar-stat-val"><a href="marketplace.html?seller=${encodeURIComponent(seller.username)}">${Number(seller.listingCount || seller.productCount || 0)} active</a></td></tr>
               </tbody>
             </table>
             ${directContactHtml}
@@ -718,7 +749,7 @@
           <h2 class="product-desc-heading">Item Description</h2>
           <p>${escapeHtml(item.description)}</p>
 
-          <table class="data-table product-detail-table">
+          <table class="data-table kv-table product-detail-table">
             <tbody>
               <tr><th scope="row">Category</th><td><a href="marketplace.html?cat=${encodeURIComponent(item.category)}">${escapeHtml(item.categoryName)}</a></td></tr>
               <tr><th scope="row">Condition</th><td>${escapeHtml(item.condition)}</td></tr>
@@ -864,14 +895,14 @@
                 <img src="${escapeHtml(rel.image)}" alt="${escapeHtml(rel.name)}" class="listing-thumb" width="64" height="48" />
               </a>
             </td>
-            <td>
+            <td data-label="Product">
               <a href="product.html?id=${encodeURIComponent(rel.id)}"><strong>${escapeHtml(rel.name)}</strong></a>
               <div class="listing-meta-row">Seller: <a href="marketplace.html?seller=${encodeURIComponent(rel.seller)}">${escapeHtml(rel.seller)}</a></div>
             </td>
-            <td><a href="marketplace.html?cat=${encodeURIComponent(rel.category)}">${escapeHtml(rel.categoryName)}</a></td>
-            <td>${escapeHtml(rel.condition)}</td>
-            <td><span class="${getAvailabilityClass(rel)}">${escapeHtml(rel.availability)}</span></td>
-            <td class="col-right price"><strong>${formatPrice(rel.price)}</strong></td>
+            <td data-label="Category"><a href="marketplace.html?cat=${encodeURIComponent(rel.category)}">${escapeHtml(rel.categoryName)}</a></td>
+            <td data-label="Condition">${escapeHtml(rel.condition)}</td>
+            <td data-label="Availability"><span class="${getAvailabilityClass(rel)}">${escapeHtml(rel.availability)}</span></td>
+            <td data-label="Price" class="col-right price"><strong>${formatPrice(rel.price)}</strong></td>
           </tr>`
           )
           .join('');
@@ -928,11 +959,11 @@
         directoryBody.innerHTML = SELLERS.map(
           (s) => `
           <tr>
-            <td><a href="marketplace.html?seller=${encodeURIComponent(s.username)}"><strong>${escapeHtml(s.username)}</strong></a></td>
-            <td>${escapeHtml(s.specialty || 'General')}</td>
-            <td>${escapeHtml(s.location || 'Not specified')}</td>
-            <td>${escapeHtml(s.responseTime || 'Within 24 hours')}</td>
-            <td class="col-center"><a href="contact.html?seller=${encodeURIComponent(s.username)}" class="btn btn-compact">Select Seller</a></td>
+            <td data-label="Seller"><a href="marketplace.html?seller=${encodeURIComponent(s.username)}"><strong>${escapeHtml(s.username)}</strong></a></td>
+            <td data-label="Specialty">${escapeHtml(s.specialty || 'General')}</td>
+            <td data-label="Location">${escapeHtml(s.location || 'Not specified')}</td>
+            <td data-label="Avg. Response">${escapeHtml(s.responseTime || 'Within 24 hours')}</td>
+            <td data-label="Action" class="col-center"><a href="contact.html?seller=${encodeURIComponent(s.username)}" class="btn btn-compact">Select Seller</a></td>
           </tr>`
         ).join('');
       }
@@ -985,6 +1016,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     initHeaderDate();
+    initMobileNav();
     initHeaderSearch();
 
     if (window.RetroMarketData) {

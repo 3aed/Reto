@@ -49,7 +49,14 @@
     </header>
 
     <nav class="main-nav" aria-label="Primary Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Navigation Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="primary-nav-list" aria-label="Toggle navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
         <li class="nav-item"><a href="marketplace.html" class="nav-link active" aria-current="page">Marketplace</a></li>
         <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
@@ -151,24 +158,26 @@
             <span>Loading catalog filter summary...</span>
           </div>
 
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col" class="col-center">Photo</th>
-                <th scope="col">Product Listing</th>
-                <th scope="col">Category</th>
-                <th scope="col">Seller</th>
-                <th scope="col">Condition</th>
-                <th scope="col">Availability</th>
-                <th scope="col" class="col-right">Price</th>
-              </tr>
-            </thead>
-            <tbody id="marketplace-listings-body">
-              <tr>
-                <td colspan="7" class="text-center text-muted">Loading marketplace catalog...</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-center">Photo</th>
+                  <th scope="col">Product Listing</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Seller</th>
+                  <th scope="col">Condition</th>
+                  <th scope="col">Availability</th>
+                  <th scope="col" class="col-right">Price</th>
+                </tr>
+              </thead>
+              <tbody id="marketplace-listings-body">
+                <tr>
+                  <td colspan="7" class="text-center text-muted">Loading marketplace catalog...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <div class="panel-footer">
             <span>Click any product thumbnail or title to open full specifications and seller details.</span>

@@ -53,7 +53,14 @@
 
     <!-- Primary Public Visitor Navigation -->
     <nav class="main-nav" aria-label="Primary Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Navigation Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="primary-nav-list" aria-label="Toggle navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
         <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
         <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>

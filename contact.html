@@ -52,7 +52,14 @@
 
     <!-- Primary Public Visitor Navigation -->
     <nav class="main-nav" aria-label="Primary Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Navigation Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="primary-nav-list" aria-label="Toggle navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
         <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
         <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
@@ -170,20 +177,22 @@
             <span id="seller-directory-heading">RetroMarket Seller Directory</span>
             <span class="panel-header-sub">Click "Select Seller" to prefill the contact form above</span>
           </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Seller Username</th>
-                <th scope="col">Specialty</th>
-                <th scope="col">Location</th>
-                <th scope="col">Avg. Response</th>
-                <th scope="col" class="col-center">Action</th>
-              </tr>
-            </thead>
-            <tbody id="contact-seller-directory-body">
-              <tr><td colspan="5" class="text-center text-muted">Loading seller directory...</td></tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col">Seller Username</th>
+                  <th scope="col">Specialty</th>
+                  <th scope="col">Location</th>
+                  <th scope="col">Avg. Response</th>
+                  <th scope="col" class="col-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="contact-seller-directory-body">
+                <tr><td colspan="5" class="text-center text-muted">Loading seller directory...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>

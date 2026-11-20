@@ -35,14 +35,21 @@
           <span class="brand-tagline">Production Control Panel &mdash; Catalog, Sellers, Orders, Payments &amp; Audit</span>
         </span>
       </a>
-      <div>
+      <div class="admin-header-actions">
         <a href="/index.html" class="btn">Public Storefront &raquo;</a>
         <button type="button" class="btn btn-danger js-admin-logout">Sign Out</button>
       </div>
     </header>
 
     <nav class="main-nav" aria-label="Administrator Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Admin Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="admin-primary-nav-list" aria-label="Toggle admin navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="admin-primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="#overview" class="nav-link active js-admin-tab" data-admin-tab="overview">Overview</a></li>
         <li class="nav-item"><a href="#products" class="nav-link js-admin-tab" data-admin-tab="products">Products</a></li>
         <li class="nav-item"><a href="#categories" class="nav-link js-admin-tab" data-admin-tab="categories">Categories</a></li>
@@ -153,20 +160,22 @@
               <span>Recent Administrative Audit Events</span>
               <button type="button" class="btn btn-compact js-admin-tab" data-admin-tab="audit">View All Logs &raquo;</button>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Action</th>
-                  <th scope="col">Administrator</th>
-                  <th scope="col">Target</th>
-                  <th scope="col">IP</th>
-                  <th scope="col" class="col-right">Timestamp (UTC)</th>
-                </tr>
-              </thead>
-              <tbody id="ov-recent-audit-body">
-                <tr><td colspan="5" class="text-center text-muted">Loading audit records...</td></tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table responsive-cards">
+                <thead>
+                  <tr>
+                    <th scope="col">Action</th>
+                    <th scope="col">Administrator</th>
+                    <th scope="col">Target</th>
+                    <th scope="col">IP</th>
+                    <th scope="col" class="col-right">Timestamp (UTC)</th>
+                  </tr>
+                </thead>
+                <tbody id="ov-recent-audit-body">
+                  <tr><td colspan="5" class="text-center text-muted">Loading audit records...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -352,24 +361,26 @@
                 <a href="/marketplace.html" class="btn btn-compact">View Public Storefront &raquo;</a>
               </div>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">ID</th>
-                  <th scope="col" class="col-center">Photo</th>
-                  <th scope="col">Product Name</th>
-                  <th scope="col">Category</th>
-                  <th scope="col">Seller</th>
-                  <th scope="col" class="col-right">Price</th>
-                  <th scope="col" class="col-center">Stock</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" class="col-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="admin-products-body">
-                <tr><td colspan="9" class="text-center text-muted">Loading products...</td></tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table responsive-cards">
+                <thead>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col" class="col-center">Photo</th>
+                    <th scope="col">Product Name</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Seller</th>
+                    <th scope="col" class="col-right">Price</th>
+                    <th scope="col" class="col-center">Stock</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="col-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-products-body">
+                  <tr><td colspan="9" class="text-center text-muted">Loading products...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -409,20 +420,22 @@
 
           <div class="panel">
             <div class="panel-header"><span id="admin-categories-heading">Catalog Categories</span></div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Slug</th>
-                  <th scope="col">Description</th>
-                  <th scope="col" class="col-right">Products</th>
-                  <th scope="col" class="col-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="admin-categories-body">
-                <tr><td colspan="5" class="text-center text-muted">Loading categories...</td></tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table responsive-cards">
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Slug</th>
+                    <th scope="col">Description</th>
+                    <th scope="col" class="col-right">Products</th>
+                    <th scope="col" class="col-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-categories-body">
+                  <tr><td colspan="5" class="text-center text-muted">Loading categories...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -497,22 +510,24 @@
 
           <div class="panel">
             <div class="panel-header"><span id="admin-sellers-heading">Registered Sellers</span></div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Username</th>
-                  <th scope="col">Email</th>
-                  <th scope="col">Location</th>
-                  <th scope="col">Specialty</th>
-                  <th scope="col" class="col-right">Products</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" class="col-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="admin-sellers-body">
-                <tr><td colspan="7" class="text-center text-muted">Loading sellers...</td></tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table responsive-cards">
+                <thead>
+                  <tr>
+                    <th scope="col">Username</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Location</th>
+                    <th scope="col">Specialty</th>
+                    <th scope="col" class="col-right">Products</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="col-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-sellers-body">
+                  <tr><td colspan="7" class="text-center text-muted">Loading sellers...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -523,23 +538,25 @@
             <span class="panel-header-sub">Inspect customer orders and update fulfillment status</span>
           </div>
           <div id="admin-order-detail-drawer" class="admin-detail-drawer is-hidden"></div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Order Reference</th>
-                <th scope="col">Date (UTC)</th>
-                <th scope="col">Customer</th>
-                <th scope="col">Method</th>
-                <th scope="col">Payment</th>
-                <th scope="col">Order Status</th>
-                <th scope="col" class="col-right">Total</th>
-                <th scope="col" class="col-center">Action</th>
-              </tr>
-            </thead>
-            <tbody id="admin-orders-body">
-              <tr><td colspan="8" class="text-center text-muted">Loading orders...</td></tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col">Order Reference</th>
+                  <th scope="col">Date (UTC)</th>
+                  <th scope="col">Customer</th>
+                  <th scope="col">Method</th>
+                  <th scope="col">Payment</th>
+                  <th scope="col">Order Status</th>
+                  <th scope="col" class="col-right">Total</th>
+                  <th scope="col" class="col-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-orders-body">
+                <tr><td colspan="8" class="text-center text-muted">Loading orders...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <!-- SECTION 6: PAYMENTS -->
@@ -549,22 +566,24 @@
             <span class="panel-header-sub">Cryptocurrency &amp; Manual Seller payments remain Pending Verification until manually confirmed; CyberSource is unavailable</span>
           </div>
           <div id="admin-payment-review-drawer" class="admin-detail-drawer is-hidden"></div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Payment Ref</th>
-                <th scope="col">Order Ref</th>
-                <th scope="col">Method</th>
-                <th scope="col" class="col-right">Amount</th>
-                <th scope="col">Reference / Note</th>
-                <th scope="col">Status</th>
-                <th scope="col" class="col-center">Action</th>
-              </tr>
-            </thead>
-            <tbody id="admin-payments-body">
-              <tr><td colspan="7" class="text-center text-muted">Loading payments...</td></tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col">Payment Ref</th>
+                  <th scope="col">Order Ref</th>
+                  <th scope="col">Method</th>
+                  <th scope="col" class="col-right">Amount</th>
+                  <th scope="col">Reference / Note</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" class="col-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-payments-body">
+                <tr><td colspan="7" class="text-center text-muted">Loading payments...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <!-- SECTION 7: INQUIRIES -->
@@ -572,21 +591,23 @@
           <div class="panel-header panel-header-dark">
             <span id="admin-inquiries-heading">Guest Seller &amp; Support Inquiries</span>
           </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Ref</th>
-                <th scope="col">Recipient</th>
-                <th scope="col">Guest</th>
-                <th scope="col">Order Ref</th>
-                <th scope="col">Message</th>
-                <th scope="col" class="col-right">Date (UTC)</th>
-              </tr>
-            </thead>
-            <tbody id="admin-inquiries-body">
-              <tr><td colspan="6" class="text-center text-muted">Loading inquiries...</td></tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col">Ref</th>
+                  <th scope="col">Recipient</th>
+                  <th scope="col">Guest</th>
+                  <th scope="col">Order Ref</th>
+                  <th scope="col">Message</th>
+                  <th scope="col" class="col-right">Date (UTC)</th>
+                </tr>
+              </thead>
+              <tbody id="admin-inquiries-body">
+                <tr><td colspan="6" class="text-center text-muted">Loading inquiries...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <!-- SECTION 8: AUDIT LOGS -->
@@ -595,22 +616,25 @@
             <span id="admin-audit-heading">Security &amp; Administrative Audit Log</span>
             <span class="panel-header-sub">Immutable server-side record of sensitive operations</span>
           </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">ID</th>
-                <th scope="col">Action</th>
-                <th scope="col">Administrator</th>
-                <th scope="col">Target</th>
-                <th scope="col">Details</th>
-                <th scope="col">IP</th>
-                <th scope="col" class="col-right">Timestamp (UTC)</th>
-              </tr>
-            </thead>
-            <tbody id="admin-audit-body">
-              <tr><td colspan="7" class="text-center text-muted">Loading audit logs...</td></tr>
-            </tbody>
-          </table>
+          <div class="admin-table-hint">Swipe horizontally to view all audit log columns.</div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Action</th>
+                  <th scope="col">Administrator</th>
+                  <th scope="col">Target</th>
+                  <th scope="col">Details</th>
+                  <th scope="col">IP</th>
+                  <th scope="col" class="col-right">Timestamp (UTC)</th>
+                </tr>
+              </thead>
+              <tbody id="admin-audit-body">
+                <tr><td colspan="7" class="text-center text-muted">Loading audit logs...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <!-- SECTION 9: WEBSITE SETTINGS & MANUAL CRYPTOCURRENCY METHODS -->
@@ -753,21 +777,23 @@
               <span>Configured Manual Cryptocurrency Payment Methods</span>
               <span class="panel-header-sub">Manual admin verification only</span>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Cryptocurrency</th>
-                  <th scope="col">Network</th>
-                  <th scope="col">Wallet Address</th>
-                  <th scope="col" class="col-center">QR</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" class="col-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="admin-crypto-methods-body">
-                <tr><td colspan="6" class="text-center text-muted">Loading cryptocurrency options...</td></tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table responsive-cards">
+                <thead>
+                  <tr>
+                    <th scope="col">Cryptocurrency</th>
+                    <th scope="col">Network</th>
+                    <th scope="col">Wallet Address</th>
+                    <th scope="col" class="col-center">QR</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="col-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-crypto-methods-body">
+                  <tr><td colspan="6" class="text-center text-muted">Loading cryptocurrency options...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       </main>

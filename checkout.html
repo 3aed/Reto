@@ -52,7 +52,14 @@
     </header>
 
     <nav class="main-nav" aria-label="Primary Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Navigation Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="primary-nav-list" aria-label="Toggle navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
         <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
         <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
@@ -144,21 +151,23 @@
               <h1 id="order-summary-heading" class="panel-title">1. Order Summary</h1>
               <a href="cart.html">Edit Quantities &raquo;</a>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Product</th>
-                  <th scope="col" class="col-center">Qty</th>
-                  <th scope="col" class="col-right">Unit Price</th>
-                  <th scope="col" class="col-right">Line Total</th>
-                </tr>
-              </thead>
-              <tbody id="checkout-summary-body">
-                <tr>
-                  <td colspan="4" class="text-center text-muted">Loading order summary...</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table responsive-cards">
+                <thead>
+                  <tr>
+                    <th scope="col">Product</th>
+                    <th scope="col" class="col-center">Qty</th>
+                    <th scope="col" class="col-right">Unit Price</th>
+                    <th scope="col" class="col-right">Line Total</th>
+                  </tr>
+                </thead>
+                <tbody id="checkout-summary-body">
+                  <tr>
+                    <td colspan="4" class="text-center text-muted">Loading order summary...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </section>
 
           <!-- Customer & Shipping Form + Payment Method Selection -->

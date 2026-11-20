@@ -406,7 +406,28 @@
   vertical-align: middle;
 }
 
+.admin-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-table-hint {
+  display: none;
+  padding: 5px 9px;
+  font-size: 11px;
+  color: var(--rm-text-muted);
+  background-color: #F7F9FC;
+  border-bottom: 1px solid var(--rm-border-light);
+}
+
 @media (max-width: 780px) {
+  .admin-session-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
   .admin-summary-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -415,5 +436,92 @@
   .admin-two-col-inputs,
   .admin-kv-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-detail-grid {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-file-input {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .admin-checkbox-inline {
+    display: flex;
+    margin-right: 0;
+    margin-bottom: 6px;
+    min-height: 28px;
+    font-size: 12px;
+  }
+
+  .admin-checkbox-inline input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+  }
+
+  .form-table th,
+  .form-table td {
+    display: block;
+    width: 100%;
+    border-right: 0;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .admin-login-shell {
+    margin: 14px auto;
+    padding: 0 10px;
+  }
+
+  .admin-table-hint {
+    display: block;
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-action-cell {
+    white-space: normal;
+  }
+
+  .data-table.responsive-cards .admin-action-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 8px;
+  }
+
+  .data-table.responsive-cards .admin-action-cell::before {
+    width: 100%;
+    margin-bottom: 2px;
+  }
+
+  .data-table.responsive-cards .admin-action-cell .btn + .btn,
+  .data-table.responsive-cards .admin-action-cell a.btn + .btn,
+  .data-table.responsive-cards .admin-action-cell .btn + a.btn {
+    margin-left: 0;
+  }
+
+  .data-table.responsive-cards .admin-action-cell .btn {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 440px) {
+  .admin-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-quick-links .btn {
+    flex: 1 1 100%;
   }
 }

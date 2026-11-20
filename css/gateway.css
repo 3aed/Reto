@@ -412,15 +412,83 @@
 }
 
 @media (max-width: 520px) {
+  .rm-gateway-overlay {
+    padding: 10px;
+    align-items: flex-start;
+  }
+
   .cs-gw-card {
-    padding: 18px;
+    padding: 16px;
+    margin: auto 0;
+  }
+
+  .cs-gw-meta-row {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .cs-gw-required-note {
+    margin-left: 0;
   }
 
   .cs-gw-card-grid {
     column-gap: 10px;
   }
 
+  .cs-gw-card-option {
+    min-height: 36px;
+  }
+
+  .cs-gw-card-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+  }
+
+  .cs-gw-input,
+  .cs-gw-select {
+    height: 38px;
+    font-size: 16px;
+  }
+
   .cs-gw-input-card {
+    width: 100%;
+  }
+
+  .cs-gw-exp-row {
+    gap: 12px;
+  }
+
+  .cs-gw-exp-col {
+    flex: 1 1 120px;
+  }
+
+  .cs-gw-select-exp {
+    width: 100%;
+  }
+
+  .cs-gw-next-btn,
+  .cs-gw-secondary-btn {
+    min-height: 40px;
+  }
+
+  .cs-gw-confirm-actions {
+    flex-wrap: wrap;
+  }
+
+  .cs-gw-confirm-table th,
+  .cs-gw-confirm-table td {
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 380px) {
+  .cs-gw-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-gw-actions .cs-gw-next-btn,
+  .cs-gw-confirm-actions .cs-gw-secondary-btn,
+  .cs-gw-confirm-actions .cs-gw-next-btn {
     width: 100%;
   }
 }

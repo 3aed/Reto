@@ -170,6 +170,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -1037,6 +1038,7 @@
   font-size: 11px;
   line-height: 1.5;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Responsive Adjustments */
@@ -1050,7 +1052,14 @@
   .product-detail-layout,
   .product-subgrid,
   .crypto-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .split-columns > *,
+  .product-detail-layout > *,
+  .product-subgrid > *,
+  .crypto-layout > * {
+    min-width: 0;
   }
 
   .category-cell {
@@ -1058,8 +1067,180 @@
   }
 }
 
+@media (max-width: 768px) {
+  .filter-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    display: flex;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .filter-group > label {
+    min-width: 70px;
+    flex-shrink: 0;
+  }
+
+  .filter-input,
+  .filter-select {
+    min-height: 36px;
+    font-size: 14px;
+    padding: 4px 8px;
+    min-width: 0;
+  }
+
+  .filter-input-keyword,
+  .filter-group .filter-select,
+  .filter-group .filter-input {
+    flex: 1 1 140px;
+    width: auto;
+    max-width: 100%;
+  }
+
+  .filter-group .filter-input-price {
+    flex: 1 1 65px;
+    width: auto;
+  }
+
+  .gallery-thumb-btn {
+    padding: 4px;
+  }
+
+  .qty-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+  }
+
+  .qty-input {
+    width: 52px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .payment-option {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .payment-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  .payment-option > span {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+@media (max-width: 680px) {
+  .data-table.responsive-cards td.listing-thumb-cell {
+    width: 100%;
+    text-align: left;
+    border-bottom: 0;
+    padding-bottom: 6px;
+  }
+
+  .data-table.responsive-cards td.listing-thumb-cell::before {
+    content: none;
+    display: none;
+  }
+
+  .data-table.responsive-cards .listing-thumb {
+    width: 112px;
+    height: 84px;
+    margin: 0;
+  }
+
+  .data-table.responsive-cards .listing-action-row {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    gap: 8px;
+  }
+
+  .data-table.responsive-cards .qty-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .cart-totals-wrap {
+    justify-content: stretch;
+  }
+
+  .cart-totals-table {
+    width: 100%;
+  }
+
+  .payment-tabs {
+    padding: 6px 6px 0 6px;
+    gap: 4px;
+  }
+
+  .payment-tab-btn {
+    flex: 1 1 100%;
+    text-align: left;
+    min-height: 38px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--rm-border);
+    top: 0;
+  }
+
+  .payment-tab-btn.is-active {
+    top: 0;
+    border-bottom: 1px solid var(--rm-primary);
+  }
+}
+
 @media (max-width: 540px) {
   .product-grid {
     grid-template-columns: 1fr;
+  }
+
+  .product-detail-layout {
+    padding: 9px;
+    gap: 12px;
+  }
+
+  .product-price-box .text-right {
+    text-align: left;
+  }
+
+  .product-detail-actions {
+    gap: 8px;
+  }
+
+  .product-detail-actions .btn {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
+  .announcement-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .crypto-coin-btn {
+    width: 100%;
+    text-align: left;
+    min-height: 36px;
+  }
+
+  .wallet-address-input {
+    min-width: 0;
+    width: 100%;
+    flex: 1 1 100%;
+    font-size: 12px;
+  }
+
+  .crypto-qr-preview {
+    width: 150px;
+    height: 150px;
+    max-width: 100%;
   }
 }

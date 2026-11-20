@@ -292,7 +292,7 @@
             <img src="${escapeHtml(safeUrl(item.image))}" alt="${escapeHtml(item.name)}" class="listing-thumb" width="64" height="48" />
           </a>
         </td>
-        <td>
+        <td data-label="Product">
           <a href="product.html?id=${encodeURIComponent(item.id)}" class="listing-title-link">${escapeHtml(item.name)}</a>
           <div class="listing-meta-row">
             ID #${item.id} &middot; Seller: <a href="marketplace.html?seller=${encodeURIComponent(item.seller)}">${escapeHtml(item.seller)}</a>
@@ -303,8 +303,8 @@
             &middot; Available stock: ${item.maxStock}
           </div>
         </td>
-        <td class="col-right price nowrap">${formatPrice(item.unitPrice)}</td>
-        <td class="col-center nowrap">
+        <td data-label="Unit Price" class="col-right price nowrap">${formatPrice(item.unitPrice)}</td>
+        <td data-label="Quantity" class="col-center nowrap">
           <div class="qty-controls">
             <button type="button" class="qty-btn js-qty-dec" data-id="${item.id}" aria-label="Decrease quantity">&minus;</button>
             <input type="number" min="1" max="${item.maxStock}" step="1" value="${item.qty}" class="qty-input js-qty-input" data-id="${item.id}" aria-label="Quantity" />
@@ -312,8 +312,8 @@
             <button type="button" class="btn btn-compact js-qty-apply" data-id="${item.id}">Update</button>
           </div>
         </td>
-        <td class="col-right price nowrap"><strong>${formatPrice(item.lineTotal)}</strong></td>
-        <td class="col-center nowrap">
+        <td data-label="Line Total" class="col-right price nowrap"><strong>${formatPrice(item.lineTotal)}</strong></td>
+        <td data-label="Action" class="col-center nowrap">
           <button type="button" class="btn btn-compact js-remove-cart" data-id="${item.id}">Remove</button>
         </td>
       </tr>`

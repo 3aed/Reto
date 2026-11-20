@@ -55,7 +55,14 @@
 
     <!-- Traditional Horizontal Navigation -->
     <nav class="main-nav" aria-label="Primary Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Navigation Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="primary-nav-list" aria-label="Toggle navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="index.html" class="nav-link">Home</a></li>
         <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
         <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
@@ -192,26 +199,28 @@
               <span id="active-order-heading">Order Payment Overview</span>
               <span class="panel-header-sub">Server-Verified Totals</span>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Order Reference</th>
-                  <th scope="col">Selected Method</th>
-                  <th scope="col" class="col-center">Currency</th>
-                  <th scope="col" class="col-right">Amount Due</th>
-                  <th scope="col">Payment Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td id="pay-summary-order-id" class="num"><strong>&mdash;</strong></td>
-                  <td id="pay-summary-method">CyberSource</td>
-                  <td id="pay-summary-currency" class="col-center">USD</td>
-                  <td id="pay-summary-amount" class="col-right price"><strong>$0.00</strong></td>
-                  <td><span id="pay-summary-status" class="pay-status-pending">Pending</span></td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table responsive-cards">
+                <thead>
+                  <tr>
+                    <th scope="col">Order Reference</th>
+                    <th scope="col">Selected Method</th>
+                    <th scope="col" class="col-center">Currency</th>
+                    <th scope="col" class="col-right">Amount Due</th>
+                    <th scope="col">Payment Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td id="pay-summary-order-id" data-label="Order Reference" class="num"><strong>&mdash;</strong></td>
+                    <td id="pay-summary-method" data-label="Selected Method">CyberSource</td>
+                    <td id="pay-summary-currency" data-label="Currency" class="col-center">USD</td>
+                    <td id="pay-summary-amount" data-label="Amount Due" class="col-right price"><strong>$0.00</strong></td>
+                    <td data-label="Payment Status"><span id="pay-summary-status" class="pay-status-pending">Pending</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </section>
 
           <!-- Three Payment Method Interfaces -->
@@ -264,26 +273,28 @@
                 Online card payment processing via CyberSource is currently unavailable on RetroMarket. The CyberSource Payment Details interface below is preserved as a frontend-only placeholder and does not connect to CyberSource APIs or process real transactions. Please use <strong>Cryptocurrency</strong> or <strong>Contact Seller / Manual Payment</strong> to complete your order.
               </div>
 
-              <table class="data-table section-gap">
-                <tbody>
-                  <tr>
-                    <th scope="row" class="receipt-label-col">Order Reference</th>
-                    <td id="cs-order-ref" class="num"><strong>&mdash;</strong></td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Payment Amount</th>
-                    <td id="cs-amount" class="price"><strong>$0.00</strong></td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Currency</th>
-                    <td id="cs-currency">USD</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Payment Status</th>
-                    <td><span id="cs-payment-status" class="pay-status-pending">Pending</span></td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="table-responsive section-gap">
+                <table class="data-table kv-table">
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="receipt-label-col">Order Reference</th>
+                      <td id="cs-order-ref" class="num"><strong>&mdash;</strong></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Payment Amount</th>
+                      <td id="cs-amount" class="price"><strong>$0.00</strong></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Currency</th>
+                      <td id="cs-currency">USD</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Payment Status</th>
+                      <td><span id="cs-payment-status" class="pay-status-pending">Pending</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <h3 class="product-desc-heading">Payment Information</h3>
               <ol class="instruction-list">
@@ -315,22 +326,24 @@
                 <span id="crypto-method-buttons">Loading configured cryptocurrencies...</span>
               </div>
 
-              <table class="data-table section-gap">
-                <tbody>
-                  <tr>
-                    <th scope="row" class="receipt-label-col">Order Reference</th>
-                    <td id="crypto-order-ref" class="num"><strong>&mdash;</strong></td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Order Amount</th>
-                    <td id="crypto-amount-usd" class="price"><strong>$0.00 USD</strong></td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Payment Status</th>
-                    <td><span id="crypto-payment-status" class="pay-status-pending">Pending</span></td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="table-responsive section-gap">
+                <table class="data-table kv-table">
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="receipt-label-col">Order Reference</th>
+                      <td id="crypto-order-ref" class="num"><strong>&mdash;</strong></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Order Amount</th>
+                      <td id="crypto-amount-usd" class="price"><strong>$0.00 USD</strong></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Payment Status</th>
+                      <td><span id="crypto-payment-status" class="pay-status-pending">Pending</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <div id="crypto-empty-notice" class="error-box section-gap">
                 No cryptocurrency wallets are currently configured by the store administrator. Please use the Contact Seller / Manual Payment tab.
@@ -338,41 +351,43 @@
 
               <!-- Selected Cryptocurrency Wallet Details, QR Code & Instructions -->
               <div id="crypto-method-details" class="is-hidden section-gap">
-                <table class="data-table section-gap">
-                  <tbody>
-                    <tr>
-                      <th scope="row" class="receipt-label-col">Cryptocurrency</th>
-                      <td id="crypto-detail-name"><strong>&mdash;</strong></td>
-                    </tr>
-                    <tr>
-                      <th scope="row">Network</th>
-                      <td id="crypto-detail-network">&mdash;</td>
-                    </tr>
-                    <tr>
-                      <th scope="row">Wallet Address</th>
-                      <td>
-                        <div class="wallet-copy-row">
-                          <label for="crypto-wallet-address" class="sr-only">Merchant Wallet Address</label>
-                          <input id="crypto-wallet-address" type="text" class="wallet-address-input" readonly />
-                          <button id="crypto-copy-btn" type="button" class="btn btn-compact">Copy Address</button>
-                        </div>
-                        <span id="crypto-copy-feedback" class="form-hint" role="status" aria-live="polite"></span>
-                      </td>
-                    </tr>
-                    <tr id="crypto-qr-row" class="is-hidden">
-                      <th scope="row">Payment QR Code</th>
-                      <td>
-                        <img id="crypto-qr-img" src="" alt="Cryptocurrency wallet QR code" class="crypto-qr-preview" />
-                      </td>
-                    </tr>
-                    <tr id="crypto-instructions-row" class="is-hidden">
-                      <th scope="row">Payment Instructions</th>
-                      <td>
-                        <div id="crypto-instructions-box" class="crypto-instructions-box"></div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div class="table-responsive section-gap">
+                  <table class="data-table kv-table">
+                    <tbody>
+                      <tr>
+                        <th scope="row" class="receipt-label-col">Cryptocurrency</th>
+                        <td id="crypto-detail-name"><strong>&mdash;</strong></td>
+                      </tr>
+                      <tr>
+                        <th scope="row">Network</th>
+                        <td id="crypto-detail-network">&mdash;</td>
+                      </tr>
+                      <tr>
+                        <th scope="row">Wallet Address</th>
+                        <td>
+                          <div class="wallet-copy-row">
+                            <label for="crypto-wallet-address" class="sr-only">Merchant Wallet Address</label>
+                            <input id="crypto-wallet-address" type="text" class="wallet-address-input" readonly />
+                            <button id="crypto-copy-btn" type="button" class="btn btn-compact">Copy Address</button>
+                          </div>
+                          <span id="crypto-copy-feedback" class="form-hint" role="status" aria-live="polite"></span>
+                        </td>
+                      </tr>
+                      <tr id="crypto-qr-row" class="is-hidden">
+                        <th scope="row">Payment QR Code</th>
+                        <td>
+                          <img id="crypto-qr-img" src="" alt="Cryptocurrency wallet QR code" class="crypto-qr-preview" />
+                        </td>
+                      </tr>
+                      <tr id="crypto-instructions-row" class="is-hidden">
+                        <th scope="row">Payment Instructions</th>
+                        <td>
+                          <div id="crypto-instructions-box" class="crypto-instructions-box"></div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <h3 class="product-desc-heading">Submit Manual Payment Confirmation</h3>
@@ -418,22 +433,24 @@
             <div id="payment-pane-manual" class="payment-pane" role="tabpanel">
               <h2 class="payment-pane-title">Contact Seller / Manual Payment Arrangement</h2>
 
-              <table class="data-table section-gap">
-                <tbody>
-                  <tr>
-                    <th scope="row" class="receipt-label-col">Order Reference</th>
-                    <td id="manual-order-ref" class="num"><strong>&mdash;</strong></td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Total Amount</th>
-                    <td id="manual-total-amount" class="price"><strong>$0.00 USD</strong></td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Payment Status</th>
-                    <td><span id="manual-payment-status" class="pay-status-pending">Pending</span></td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="table-responsive section-gap">
+                <table class="data-table kv-table">
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="receipt-label-col">Order Reference</th>
+                      <td id="manual-order-ref" class="num"><strong>&mdash;</strong></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Total Amount</th>
+                      <td id="manual-total-amount" class="price"><strong>$0.00 USD</strong></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Payment Status</th>
+                      <td><span id="manual-payment-status" class="pay-status-pending">Pending</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <h3 class="product-desc-heading">Manual Payment Instructions</h3>
               <ol class="instruction-list">
@@ -503,24 +520,26 @@
               <span id="payment-history-heading">Order Payment Transactions</span>
               <a href="orders.html">View Order Confirmation &raquo;</a>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Payment Ref</th>
-                  <th scope="col">Payment Method</th>
-                  <th scope="col" class="col-right">Amount</th>
-                  <th scope="col" class="col-center">Currency</th>
-                  <th scope="col">Transaction Ref</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Date (UTC)</th>
-                </tr>
-              </thead>
-              <tbody id="payment-history-body">
-                <tr>
-                  <td colspan="7" class="text-center text-muted">No payment transactions recorded yet.</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table responsive-cards">
+                <thead>
+                  <tr>
+                    <th scope="col">Payment Ref</th>
+                    <th scope="col">Payment Method</th>
+                    <th scope="col" class="col-right">Amount</th>
+                    <th scope="col" class="col-center">Currency</th>
+                    <th scope="col">Transaction Ref</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Date (UTC)</th>
+                  </tr>
+                </thead>
+                <tbody id="payment-history-body">
+                  <tr>
+                    <td colspan="7" class="text-center text-muted">No payment transactions recorded yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
       </main>

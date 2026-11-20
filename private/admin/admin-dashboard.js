@@ -357,11 +357,11 @@
           .map(
             (l) => `
             <tr>
-              <td><span class="badge-activity-type">${escapeHtml(l.action)}</span></td>
-              <td>${escapeHtml(l.admin_email || 'system')}</td>
-              <td>${escapeHtml([l.target_type, l.target_id].filter(Boolean).join(' #'))}</td>
-              <td class="num">${escapeHtml(l.ip_address || '')}</td>
-              <td class="col-right nowrap text-muted">${escapeHtml(l.created_at)}</td>
+              <td data-label="Action"><span class="badge-activity-type">${escapeHtml(l.action)}</span></td>
+              <td data-label="Admin">${escapeHtml(l.admin_email || 'system')}</td>
+              <td data-label="Target">${escapeHtml([l.target_type, l.target_id].filter(Boolean).join(' #'))}</td>
+              <td data-label="IP Address" class="num">${escapeHtml(l.ip_address || '')}</td>
+              <td data-label="Timestamp (UTC)" class="col-right nowrap text-muted">${escapeHtml(l.created_at)}</td>
             </tr>`
           )
           .join('');
@@ -400,11 +400,11 @@
       .map(
         (c) => `
         <tr>
-          <td><strong>${escapeHtml(c.name)}</strong></td>
-          <td class="mono-ref">${escapeHtml(c.slug)}</td>
-          <td>${escapeHtml(c.description || '')}</td>
-          <td class="col-right num">${Number(c.product_count || 0)}</td>
-          <td class="col-center admin-action-cell">
+          <td data-label="Name"><strong>${escapeHtml(c.name)}</strong></td>
+          <td data-label="Slug" class="mono-ref">${escapeHtml(c.slug)}</td>
+          <td data-label="Description">${escapeHtml(c.description || '')}</td>
+          <td data-label="Products" class="col-right num">${Number(c.product_count || 0)}</td>
+          <td data-label="Actions" class="col-center admin-action-cell">
             <button type="button" class="btn btn-compact js-edit-cat" data-id="${c.id}">Edit</button>
             <button type="button" class="btn btn-danger btn-compact js-del-cat" data-id="${c.id}">Delete</button>
           </td>
@@ -475,13 +475,13 @@
       .map(
         (s) => `
         <tr>
-          <td><strong>${escapeHtml(s.username)}</strong></td>
-          <td>${escapeHtml(s.email)}${s.whatsapp ? '<div class="listing-meta-row">WA: ' + escapeHtml(s.whatsapp) + '</div>' : ''}${s.telegram ? '<div class="listing-meta-row">TG: ' + escapeHtml(s.telegram) + '</div>' : ''}</td>
-          <td>${escapeHtml(s.location || '')}</td>
-          <td>${escapeHtml(s.specialty || '')}</td>
-          <td class="col-right num">${Number(s.product_count || 0)}</td>
-          <td><span class="admin-status-badge ${s.active ? 'badge-active' : 'badge-inactive'}">${s.active ? 'Active' : 'Inactive'}</span></td>
-          <td class="col-center admin-action-cell">
+          <td data-label="Seller"><strong>${escapeHtml(s.username)}</strong></td>
+          <td data-label="Contact">${escapeHtml(s.email)}${s.whatsapp ? '<div class="listing-meta-row">WA: ' + escapeHtml(s.whatsapp) + '</div>' : ''}${s.telegram ? '<div class="listing-meta-row">TG: ' + escapeHtml(s.telegram) + '</div>' : ''}</td>
+          <td data-label="Location">${escapeHtml(s.location || '')}</td>
+          <td data-label="Specialty">${escapeHtml(s.specialty || '')}</td>
+          <td data-label="Products" class="col-right num">${Number(s.product_count || 0)}</td>
+          <td data-label="Status"><span class="admin-status-badge ${s.active ? 'badge-active' : 'badge-inactive'}">${s.active ? 'Active' : 'Inactive'}</span></td>
+          <td data-label="Actions" class="col-center admin-action-cell">
             <button type="button" class="btn btn-compact js-edit-seller" data-id="${s.id}">Edit</button>
             <button type="button" class="btn btn-danger btn-compact js-del-seller" data-id="${s.id}">Delete</button>
           </td>
@@ -550,18 +550,18 @@
         const imgCount = Array.isArray(parsed) && parsed.length > 0 ? parsed.length : 1;
         return `
         <tr>
-          <td class="num">#${p.id}</td>
-          <td class="col-center">
+          <td data-label="ID" class="num">#${p.id}</td>
+          <td data-label="Photo" class="col-center">
             <img src="${escapeHtml(resolvePreviewSrc(p.image_url))}" alt="" class="admin-prod-table-thumb" />
             <div class="listing-meta-row">${imgCount} photo${imgCount === 1 ? '' : 's'}</div>
           </td>
-          <td><strong>${escapeHtml(p.name)}</strong><div class="listing-meta-row">${escapeHtml(p.condition || '')}</div></td>
-          <td>${escapeHtml(p.category_name)}</td>
-          <td>${escapeHtml(p.seller_username)}</td>
-          <td class="col-right price">${formatMoney(p.price_cents)}</td>
-          <td class="col-center num">${Number(p.stock_quantity || 0)}</td>
-          <td><span class="admin-status-badge ${p.in_stock && p.stock_quantity > 0 ? 'badge-active' : 'badge-inactive'}">${escapeHtml(p.availability || (p.in_stock && p.stock_quantity > 0 ? 'In Stock' : 'Out of Stock'))}</span></td>
-          <td class="col-center admin-action-cell">
+          <td data-label="Product"><strong>${escapeHtml(p.name)}</strong><div class="listing-meta-row">${escapeHtml(p.condition || '')}</div></td>
+          <td data-label="Category">${escapeHtml(p.category_name)}</td>
+          <td data-label="Seller">${escapeHtml(p.seller_username)}</td>
+          <td data-label="Price" class="col-right price">${formatMoney(p.price_cents)}</td>
+          <td data-label="Stock" class="col-center num">${Number(p.stock_quantity || 0)}</td>
+          <td data-label="Availability"><span class="admin-status-badge ${p.in_stock && p.stock_quantity > 0 ? 'badge-active' : 'badge-inactive'}">${escapeHtml(p.availability || (p.in_stock && p.stock_quantity > 0 ? 'In Stock' : 'Out of Stock'))}</span></td>
+          <td data-label="Actions" class="col-center admin-action-cell">
             <a href="/product.html?id=${encodeURIComponent(p.id)}" target="_blank" rel="noopener noreferrer" class="btn btn-compact">View</a>
             <button type="button" class="btn btn-compact js-edit-prod" data-id="${p.id}">Edit</button>
             <button type="button" class="btn btn-danger btn-compact js-del-prod" data-id="${p.id}">Delete</button>
@@ -689,14 +689,14 @@
       .map(
         (ord) => `
         <tr>
-          <td class="num"><strong>${escapeHtml(ord.order_number)}</strong></td>
-          <td class="nowrap text-muted">${escapeHtml(ord.created_at)}</td>
-          <td>${escapeHtml(ord.customer_name)}<div class="listing-meta-row">${escapeHtml(ord.customer_email)}</div></td>
-          <td>${escapeHtml(ord.payment_method)}</td>
-          <td><span class="admin-status-badge">${escapeHtml(ord.payment_status)}</span></td>
-          <td><span class="admin-status-badge">${escapeHtml(ord.order_status)}</span></td>
-          <td class="col-right price"><strong>${formatMoney(ord.total_cents, ord.currency)}</strong></td>
-          <td class="col-center"><button type="button" class="btn btn-compact js-view-order" data-id="${ord.id}">Manage</button></td>
+          <td data-label="Order #" class="num"><strong>${escapeHtml(ord.order_number)}</strong></td>
+          <td data-label="Date (UTC)" class="nowrap text-muted">${escapeHtml(ord.created_at)}</td>
+          <td data-label="Customer">${escapeHtml(ord.customer_name)}<div class="listing-meta-row">${escapeHtml(ord.customer_email)}</div></td>
+          <td data-label="Method">${escapeHtml(ord.payment_method)}</td>
+          <td data-label="Payment Status"><span class="admin-status-badge">${escapeHtml(ord.payment_status)}</span></td>
+          <td data-label="Order Status"><span class="admin-status-badge">${escapeHtml(ord.order_status)}</span></td>
+          <td data-label="Total" class="col-right price"><strong>${formatMoney(ord.total_cents, ord.currency)}</strong></td>
+          <td data-label="Action" class="col-center"><button type="button" class="btn btn-compact js-view-order" data-id="${ord.id}">Manage</button></td>
         </tr>`
       )
       .join('');
@@ -792,13 +792,13 @@
       .map(
         (p) => `
         <tr>
-          <td class="mono-ref">${escapeHtml(p.payment_ref)}</td>
-          <td class="num"><strong>${escapeHtml(p.order_number)}</strong></td>
-          <td>${escapeHtml(p.method)}${p.crypto_currency ? ' (' + escapeHtml(p.crypto_currency) + (p.crypto_network ? ' / ' + escapeHtml(p.crypto_network) : '') + ')' : ''}</td>
-          <td class="col-right price">${formatMoney(p.expected_amount_cents, p.currency)}</td>
-          <td class="mono-ref">${escapeHtml(p.customer_reference || p.tx_hash || p.provider_transaction_id || '—')}</td>
-          <td><span class="admin-status-badge">${escapeHtml(p.status)}</span></td>
-          <td class="col-center"><button type="button" class="btn btn-compact js-review-pay" data-id="${p.id}">Review</button></td>
+          <td data-label="Payment Ref" class="mono-ref">${escapeHtml(p.payment_ref)}</td>
+          <td data-label="Order #" class="num"><strong>${escapeHtml(p.order_number)}</strong></td>
+          <td data-label="Method">${escapeHtml(p.method)}${p.crypto_currency ? ' (' + escapeHtml(p.crypto_currency) + (p.crypto_network ? ' / ' + escapeHtml(p.crypto_network) : '') + ')' : ''}</td>
+          <td data-label="Amount" class="col-right price">${formatMoney(p.expected_amount_cents, p.currency)}</td>
+          <td data-label="Customer Ref / Tx" class="mono-ref">${escapeHtml(p.customer_reference || p.tx_hash || p.provider_transaction_id || '—')}</td>
+          <td data-label="Status"><span class="admin-status-badge">${escapeHtml(p.status)}</span></td>
+          <td data-label="Action" class="col-center"><button type="button" class="btn btn-compact js-review-pay" data-id="${p.id}">Review</button></td>
         </tr>`
       )
       .join('');
@@ -887,12 +887,12 @@
       .map(
         (inq) => `
         <tr>
-          <td class="mono-ref">${escapeHtml(inq.inquiry_ref)}</td>
-          <td>${escapeHtml(inq.recipient)}</td>
-          <td>${escapeHtml(inq.guest_name)}<div class="listing-meta-row">${escapeHtml(inq.guest_email)}</div></td>
-          <td class="num">${escapeHtml(inq.order_number || '—')}</td>
-          <td>${escapeHtml(inq.message)}</td>
-          <td class="col-right nowrap text-muted">${escapeHtml(inq.created_at)}</td>
+          <td data-label="Ref" class="mono-ref">${escapeHtml(inq.inquiry_ref)}</td>
+          <td data-label="Recipient">${escapeHtml(inq.recipient)}</td>
+          <td data-label="Sender">${escapeHtml(inq.guest_name)}<div class="listing-meta-row">${escapeHtml(inq.guest_email)}</div></td>
+          <td data-label="Order #" class="num">${escapeHtml(inq.order_number || '—')}</td>
+          <td data-label="Message">${escapeHtml(inq.message)}</td>
+          <td data-label="Date (UTC)" class="col-right nowrap text-muted">${escapeHtml(inq.created_at)}</td>
         </tr>`
       )
       .join('');
@@ -970,12 +970,12 @@
       .map(
         (m) => `
         <tr>
-          <td><strong>${escapeHtml(m.name)}</strong> <span class="badge-activity-type">${escapeHtml(m.symbol)}</span></td>
-          <td>${escapeHtml(m.network)}</td>
-          <td class="mono-ref">${escapeHtml(m.wallet_address)}</td>
-          <td class="col-center">${m.qr_code_url ? '<img src="' + escapeHtml(resolvePreviewSrc(m.qr_code_url)) + '" alt="QR" class="admin-crypto-table-qr" />' : '<span class="text-muted">None</span>'}</td>
-          <td><span class="admin-status-badge ${m.active ? 'badge-active' : 'badge-inactive'}">${m.active ? 'Active' : 'Disabled'}</span></td>
-          <td class="col-center admin-action-cell">
+          <td data-label="Currency"><strong>${escapeHtml(m.name)}</strong> <span class="badge-activity-type">${escapeHtml(m.symbol)}</span></td>
+          <td data-label="Network">${escapeHtml(m.network)}</td>
+          <td data-label="Wallet Address" class="mono-ref">${escapeHtml(m.wallet_address)}</td>
+          <td data-label="QR Code" class="col-center">${m.qr_code_url ? '<img src="' + escapeHtml(resolvePreviewSrc(m.qr_code_url)) + '" alt="QR" class="admin-crypto-table-qr" />' : '<span class="text-muted">None</span>'}</td>
+          <td data-label="Status"><span class="admin-status-badge ${m.active ? 'badge-active' : 'badge-inactive'}">${m.active ? 'Active' : 'Disabled'}</span></td>
+          <td data-label="Actions" class="col-center admin-action-cell">
             <button type="button" class="btn btn-compact js-edit-crypto" data-id="${m.id}">Edit</button>
             <button type="button" class="btn btn-danger btn-compact js-del-crypto" data-id="${m.id}">Delete</button>
           </td>
@@ -1461,10 +1461,31 @@
       });
     }
 
+    const adminNav = document.querySelector('.main-nav');
+    const adminNavToggle = adminNav?.querySelector('.nav-toggle-btn');
+    const setAdminNavOpen = (isOpen) => {
+      if (!adminNav || !adminNavToggle) return;
+      adminNav.classList.toggle('is-open', isOpen);
+      adminNavToggle.setAttribute('aria-expanded', String(isOpen));
+    };
+
+    adminNavToggle?.addEventListener('click', () => {
+      setAdminNavOpen(!adminNav.classList.contains('is-open'));
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && adminNav?.classList.contains('is-open')) {
+        setAdminNavOpen(false);
+      }
+    });
+
     document.querySelectorAll('.js-admin-tab').forEach((el) => {
       el.addEventListener('click', (e) => {
         e.preventDefault();
         activateTab(el.getAttribute('data-admin-tab'));
+        if (el.closest('.main-nav')) {
+          setAdminNavOpen(false);
+        }
       });
     });
 

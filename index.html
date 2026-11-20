@@ -54,7 +54,14 @@
 
     <!-- Primary Public Visitor Navigation -->
     <nav class="main-nav" aria-label="Primary Navigation">
-      <ul class="nav-list">
+      <div class="nav-mobile-bar">
+        <span class="nav-mobile-label">Navigation Menu</span>
+        <button type="button" class="nav-toggle-btn" aria-expanded="false" aria-controls="primary-nav-list" aria-label="Toggle navigation menu">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-text">Menu</span>
+        </button>
+      </div>
+      <ul id="primary-nav-list" class="nav-list">
         <li class="nav-item"><a href="index.html" class="nav-link active" aria-current="page">Home</a></li>
         <li class="nav-item"><a href="marketplace.html" class="nav-link">Marketplace</a></li>
         <li class="nav-item"><a href="categories.html" class="nav-link">Categories</a></li>
@@ -164,23 +171,25 @@
               </select>
             </div>
           </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Product Title</th>
-                <th scope="col">Category</th>
-                <th scope="col">Seller</th>
-                <th scope="col">Condition</th>
-                <th scope="col" class="col-right">Price</th>
-                <th scope="col">Listed</th>
-              </tr>
-            </thead>
-            <tbody id="home-latest-listings-body">
-              <tr>
-                <td colspan="6" class="text-center text-muted">Loading latest listings...</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col">Product Title</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Seller</th>
+                  <th scope="col">Condition</th>
+                  <th scope="col" class="col-right">Price</th>
+                  <th scope="col">Listed</th>
+                </tr>
+              </thead>
+              <tbody id="home-latest-listings-body">
+                <tr>
+                  <td colspan="6" class="text-center text-muted">Loading latest listings...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div class="panel-footer">
             <span>Browse all products with keyword search, price range, and sorting in the catalog.</span>
             <a href="marketplace.html">Open Marketplace Catalog &raquo;</a>
@@ -193,21 +202,23 @@
             <h2 id="featured-sellers-heading" class="panel-title">Active Sellers</h2>
             <a href="contact.html">Contact a Seller &raquo;</a>
           </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Seller Username</th>
-                <th scope="col">Specialty</th>
-                <th scope="col" class="col-right">Listings</th>
-                <th scope="col" class="col-center">Member Since</th>
-              </tr>
-            </thead>
-            <tbody id="home-featured-sellers-body">
-              <tr>
-                <td colspan="4" class="text-center text-muted">Loading active sellers...</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table responsive-cards">
+              <thead>
+                <tr>
+                  <th scope="col">Seller Username</th>
+                  <th scope="col">Specialty</th>
+                  <th scope="col" class="col-right">Listings</th>
+                  <th scope="col" class="col-center">Member Since</th>
+                </tr>
+              </thead>
+              <tbody id="home-featured-sellers-body">
+                <tr>
+                  <td colspan="4" class="text-center text-muted">Loading active sellers...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>
