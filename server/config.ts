@@ -26,7 +26,12 @@ export interface AppConfig {
   supabase: {
     url: string;
     anonKey: string;
+    serviceRoleKey: string;
     storageBucket: string;
+  };
+  adminBootstrap: {
+    email: string;
+    password: string;
   };
 }
 
@@ -42,7 +47,11 @@ export function loadConfig(): AppConfig {
     process.env.SUPABASE_PUBLISHABLE_KEY ||
     ''
   ).trim();
+  const supabaseServiceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
   const storageBucket = (process.env.SUPABASE_STORAGE_BUCKET || 'product-images').trim();
+
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD || '';
 
   return {
     nodeEnv,
@@ -57,7 +66,12 @@ export function loadConfig(): AppConfig {
     supabase: {
       url: supabaseUrl,
       anonKey: supabaseAnonKey,
+      serviceRoleKey: supabaseServiceRoleKey,
       storageBucket: storageBucket || 'product-images',
+    },
+    adminBootstrap: {
+      email: adminEmail,
+      password: adminPassword,
     },
   };
 }

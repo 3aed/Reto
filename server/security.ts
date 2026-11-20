@@ -307,6 +307,138 @@ export function createRateLimiter(options: {
   };
 }
 
+export interface LoginBruteForceGuard {
+  check(ip: string, email: string): { allowed: true } | { allowed: false; retryAfterSeconds: number };
+  recordFailure(ip: string, email: string): {
+    locked: boolean;
+    remainingAttempts: number;
+    retryAfterSeconds: number;
+  };
+  recordSuccess(ip: string, email: string): void;
+}
+
+interface LoginAttemptRecord {
+  failures: number;
+  firstFailureAt: number;
+  lockedUntil: number;
+  lockoutCount: number;
+}
+
+/**
+ * Server-side brute-force login protection:
+ * - Tracks repeated failed login attempts per IP and per (IP, email) pair.
+ * - Triggers a temporary cooldown after maxFailures (default 5) within windowMs (15m).
+ * - Progressive cooldown: 5 min -> 15 min -> 30 min max on repeated lockouts.
+ * - Clears failure history immediately upon successful authentication.
+ */
+export function createLoginBruteForceGuard(options?: {
+  maxFailures?: number;
+  windowMs?: number;
+  baseCooldownMs?: number;
+  maxCooldownMs?: number;
+}): LoginBruteForceGuard {
+  const maxFailures = options?.maxFailures ?? 5;
+  const windowMs = options?.windowMs ?? 15 * 60 * 1000;
+  const baseCooldownMs = options?.baseCooldownMs ?? 5 * 60 * 1000;
+  const maxCooldownMs = options?.maxCooldownMs ?? 30 * 60 * 1000;
+  const records = new Map<string, LoginAttemptRecord>();
+
+  const prune = (now: number) => {
+    if (records.size <= 5000) return;
+    for (const [key, rec] of records.entries()) {
+      if (rec.lockedUntil <= now && now - rec.firstFailureAt > windowMs * 2) {
+        records.delete(key);
+      }
+    }
+  };
+
+  const keysFor = (ip: string, email: string): string[] => {
+    const cleanIp = String(ip || 'unknown').trim().toLowerCase();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const list = [`ip:${cleanIp}`];
+    if (cleanEmail) {
+      list.push(`ip_email:${cleanIp}:${cleanEmail}`);
+    }
+    return list;
+  };
+
+  return {
+    check(ip: string, email: string) {
+      const now = Date.now();
+      prune(now);
+      let maxRetryMs = 0;
+      for (const key of keysFor(ip, email)) {
+        const rec = records.get(key);
+        if (rec && rec.lockedUntil > now) {
+          maxRetryMs = Math.max(maxRetryMs, rec.lockedUntil - now);
+        }
+      }
+      if (maxRetryMs > 0) {
+        return {
+          allowed: false,
+          retryAfterSeconds: Math.max(1, Math.ceil(maxRetryMs / 1000)),
+        };
+      }
+      return { allowed: true };
+    },
+
+    recordFailure(ip: string, email: string) {
+      const now = Date.now();
+      prune(now);
+      let locked = false;
+      let maxRetryMs = 0;
+      let minRemaining = maxFailures;
+
+      for (const key of keysFor(ip, email)) {
+        const isIpOnly = key.startsWith('ip:');
+        // Allow slightly higher threshold for shared NAT IPs vs specific (IP, email)
+        const limit = isIpOnly ? maxFailures * 2 : maxFailures;
+        let rec = records.get(key);
+        if (!rec || (rec.lockedUntil <= now && now - rec.firstFailureAt > windowMs)) {
+          rec = {
+            failures: 0,
+            firstFailureAt: now,
+            lockedUntil: 0,
+            lockoutCount: rec && now - rec.firstFailureAt <= windowMs * 4 ? rec.lockoutCount : 0,
+          };
+        }
+
+        rec.failures += 1;
+        if (rec.failures >= limit) {
+          rec.lockoutCount += 1;
+          const multiplier = Math.pow(3, Math.min(rec.lockoutCount - 1, 2));
+          const cooldownMs = Math.min(maxCooldownMs, baseCooldownMs * multiplier);
+          rec.lockedUntil = now + cooldownMs;
+          rec.failures = 0;
+          rec.firstFailureAt = now;
+          locked = true;
+          maxRetryMs = Math.max(maxRetryMs, cooldownMs);
+          minRemaining = 0;
+        } else if (!isIpOnly) {
+          minRemaining = Math.min(minRemaining, Math.max(0, limit - rec.failures));
+        }
+
+        records.set(key, rec);
+      }
+
+      return {
+        locked,
+        remainingAttempts: minRemaining,
+        retryAfterSeconds: locked ? Math.max(1, Math.ceil(maxRetryMs / 1000)) : 0,
+      };
+    },
+
+    recordSuccess(ip: string, email: string) {
+      const cleanIp = String(ip || 'unknown').trim().toLowerCase();
+      const cleanEmail = String(email || '').trim().toLowerCase();
+      if (cleanEmail) {
+        records.delete(`ip_email:${cleanIp}:${cleanEmail}`);
+      }
+      records.delete(`ip:${cleanIp}`);
+    },
+  };
+}
+
 export function setAdminAuthCookies(
   res: Response,
   cfg: AppConfig,
@@ -317,7 +449,7 @@ export function setAdminAuthCookies(
   const baseOpts = {
     httpOnly: true,
     secure: cfg.isProduction,
-    sameSite: 'strict' as const,
+    sameSite: 'lax' as const,
     path: '/',
   };
   res.cookie(cfg.adminAccessCookieName, tokens.accessToken, {
@@ -338,7 +470,7 @@ export function clearAdminAuthCookies(res: Response, cfg: AppConfig): void {
   const baseOpts = {
     httpOnly: true,
     secure: cfg.isProduction,
-    sameSite: 'strict' as const,
+    sameSite: 'lax' as const,
     path: '/',
   };
   res.clearCookie(cfg.adminAccessCookieName, baseOpts);

@@ -6,6 +6,8 @@ import cookieParser from 'cookie-parser';
 import type { AppConfig } from './server/config.ts';
 import { getMissingSupabaseVars, isSupabaseConfigured, loadConfig } from './server/config.ts';
 import { securityHeadersMiddleware } from './server/security.ts';
+import { ensureInitialAdminAccount } from './server/admin-bootstrap.ts';
+import { ensureInitialCatalogSeed } from './server/catalog-seed.ts';
 import { createPublicApiRouter } from './server/routes/public.ts';
 import { createAdminApiRouter, createPrivateAdminPageRouter } from './server/routes/admin.ts';
 
@@ -35,6 +37,9 @@ export async function createRetroMarketApp(
     console.warn(
       `[RetroMarket] Supabase environment variables missing (${getMissingSupabaseVars(config).join(', ')}). Configure SUPABASE_URL and SUPABASE_ANON_KEY in .env.`
     );
+  } else {
+    void ensureInitialAdminAccount(config);
+    void ensureInitialCatalogSeed(config);
   }
 
   const app = express();

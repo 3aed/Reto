@@ -40,6 +40,19 @@ export function createAuthedSupabaseClient(cfg: AppConfig, accessToken: string):
   });
 }
 
+export function createServiceRoleSupabaseClient(cfg: AppConfig): SupabaseClient | null {
+  if (!cfg.supabase.url || !cfg.supabase.serviceRoleKey) {
+    return null;
+  }
+  return createClient(cfg.supabase.url, cfg.supabase.serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 export function extractStorageObjectPath(cfg: AppConfig, url: string): string | null {
   const raw = String(url || '').trim();
   if (!raw || !cfg.supabase.url) return null;

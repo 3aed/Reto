@@ -483,6 +483,7 @@
           <td><span class="admin-status-badge ${s.active ? 'badge-active' : 'badge-inactive'}">${s.active ? 'Active' : 'Inactive'}</span></td>
           <td class="col-center admin-action-cell">
             <button type="button" class="btn btn-compact js-edit-seller" data-id="${s.id}">Edit</button>
+            <button type="button" class="btn btn-danger btn-compact js-del-seller" data-id="${s.id}">Delete</button>
           </td>
         </tr>`
       )
@@ -507,6 +508,29 @@
         document.getElementById('admin-seller-form-heading').textContent =
           'Edit Seller: ' + sel.username;
         document.getElementById('admin-seller-cancel-btn').classList.remove('is-hidden');
+      });
+    });
+
+    tbody.querySelectorAll('.js-del-seller').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (btn.dataset.armed !== 'true') {
+          btn.dataset.armed = 'true';
+          btn.textContent = 'Confirm?';
+          setTimeout(() => {
+            if (btn.isConnected && btn.dataset.armed === 'true') {
+              btn.dataset.armed = 'false';
+              btn.textContent = 'Delete';
+            }
+          }, 4000);
+          return;
+        }
+        try {
+          await api('/api/admin/sellers/' + btn.getAttribute('data-id'), { method: 'DELETE' });
+          showMessage('admin-seller-msg', 'Seller deleted.', false);
+          await refreshAll();
+        } catch (err) {
+          showMessage('admin-seller-msg', err.message, true);
+        }
       });
     });
   }
@@ -1457,6 +1481,31 @@
 
     document.getElementById('admin-refresh-all-btn')?.addEventListener('click', () => {
       refreshAll().catch(() => {});
+    });
+
+    const seedBtn = document.getElementById('admin-seed-catalog-btn');
+    seedBtn?.addEventListener('click', async () => {
+      seedBtn.disabled = true;
+      showMessage('admin-product-msg', 'Populating starter categories, sellers, and products...', false);
+      try {
+        const res = await api('/api/admin/catalog/seed', { method: 'POST' });
+        showMessage(
+          'admin-product-msg',
+          'Catalog populated: ' +
+            (res.categoriesInserted || 0) +
+            ' categories, ' +
+            (res.sellersInserted || 0) +
+            ' sellers, ' +
+            (res.productsInserted || 0) +
+            ' products added.',
+          false
+        );
+        await refreshAll();
+      } catch (err) {
+        showMessage('admin-product-msg', err.message, true);
+      } finally {
+        seedBtn.disabled = false;
+      }
     });
 
     bindForms();

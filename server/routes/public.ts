@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import type { AppConfig } from '../config.ts';
 import { isSupabaseConfigured } from '../config.ts';
 import { createPublicSupabaseClient } from '../supabase.ts';
+import { buildStarterCatalogSnapshot } from '../catalog-seed.ts';
 import {
   createRateLimiter,
   generateSecureToken,
@@ -12,6 +13,20 @@ import {
   sanitizeKeyValueMap,
   sanitizeSellerContact,
 } from '../security.ts';
+
+function isMissingSchemaError(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  const code = String(err.code || '');
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    code === '42P01' ||
+    code === 'PGRST205' ||
+    code === 'PGRST200' ||
+    msg.includes('could not find the table') ||
+    msg.includes('does not exist') ||
+    msg.includes('schema cache')
+  );
+}
 
 function parseJsonObject(val: unknown): Record<string, unknown> {
   if (val && typeof val === 'object' && !Array.isArray(val)) {
@@ -184,9 +199,10 @@ export function createPublicApiRouter(cfg: AppConfig) {
      GET /api/storefront/bootstrap — Authoritative Public Storefront Data
      ------------------------------------------------------------------------ */
   router.get('/storefront/bootstrap', async (_req: Request, res: Response) => {
-    if (!isSupabaseConfigured(cfg)) {
+    const fallbackBootstrap = (configured: boolean) => {
+      const starter = buildStarterCatalogSnapshot();
       res.json({
-        supabaseConfigured: false,
+        supabaseConfigured: configured,
         settings: DEFAULT_SETTINGS,
         paymentCapabilities: {
           cybersource: {
@@ -200,11 +216,19 @@ export function createPublicApiRouter(cfg: AppConfig) {
           },
           manual: { configured: true },
         },
-        categories: [],
-        sellers: [],
-        products: [],
-        stats: { totalProducts: 0, totalCategories: 0, activeSellers: 0 },
+        categories: starter.categories,
+        sellers: starter.sellers,
+        products: starter.products,
+        stats: {
+          totalProducts: starter.products.length,
+          totalCategories: starter.categories.length,
+          activeSellers: starter.sellers.length,
+        },
       });
+    };
+
+    if (!isSupabaseConfigured(cfg)) {
+      fallbackBootstrap(false);
       return;
     }
 
@@ -227,6 +251,14 @@ export function createPublicApiRouter(cfg: AppConfig) {
           .order('sort_order', { ascending: true })
           .order('id', { ascending: true }),
       ]);
+
+      if (productsRes.error && isMissingSchemaError(productsRes.error)) {
+        console.warn(
+          `[RetroMarket] Supabase tables not initialized (${productsRes.error.code || 'schema'}). Run supabase/schema.sql and supabase/seed.sql in Supabase SQL Editor.`
+        );
+        fallbackBootstrap(true);
+        return;
+      }
 
       const settingsRow = settingsRes.data as Record<string, unknown> | null;
       const productRows = (productsRes.data || []) as Record<string, unknown>[];
@@ -306,33 +338,22 @@ export function createPublicApiRouter(cfg: AppConfig) {
      GET /api/products — Filtered, Sorted Public Catalog Query
      ------------------------------------------------------------------------ */
   router.get('/products', async (req: Request, res: Response) => {
-    if (!isSupabaseConfigured(cfg)) {
-      res.json({ products: [] });
-      return;
-    }
+    const q = String(req.query.q || '').trim().toLowerCase();
+    const categorySlug = String(req.query.cat || '').trim().toLowerCase();
+    const sellerFilter = String(req.query.seller || '').trim().toLowerCase();
+    const sort = String(req.query.sort || 'newest').trim();
 
-    try {
-      const supabase = createPublicSupabaseClient(cfg);
-      const q = String(req.query.q || '').trim().toLowerCase();
-      const categorySlug = String(req.query.cat || '').trim().toLowerCase();
-      const sellerFilter = String(req.query.seller || '').trim().toLowerCase();
-      const sort = String(req.query.sort || 'newest').trim();
-
-      const { data, error } = await supabase
-        .from('products')
-        .select(PRODUCT_SELECT)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false });
-
-      if (error) {
-        res.status(503).json({ error: 'Could not query products from Supabase.' });
-        return;
-      }
-
-      let products = ((data || []) as Record<string, unknown>[]).map(formatPublicProduct);
-
+    const applyFiltersAndSort = <T extends {
+      id: number;
+      name: string;
+      description: string;
+      seller: string;
+      category: string;
+      priceCents: number;
+    }>(list: T[]) => {
+      let result = list.slice();
       if (q) {
-        products = products.filter(
+        result = result.filter(
           (p) =>
             p.name.toLowerCase().includes(q) ||
             p.description.toLowerCase().includes(q) ||
@@ -341,20 +362,46 @@ export function createPublicApiRouter(cfg: AppConfig) {
         );
       }
       if (categorySlug && categorySlug !== 'all') {
-        products = products.filter((p) => p.category.toLowerCase() === categorySlug);
+        result = result.filter((p) => p.category.toLowerCase() === categorySlug);
       }
       if (sellerFilter) {
-        products = products.filter((p) => p.seller.toLowerCase() === sellerFilter);
+        result = result.filter((p) => p.seller.toLowerCase() === sellerFilter);
       }
-
       if (sort === 'price-asc') {
-        products.sort((a, b) => a.priceCents - b.priceCents);
+        result.sort((a, b) => a.priceCents - b.priceCents);
       } else if (sort === 'price-desc') {
-        products.sort((a, b) => b.priceCents - a.priceCents);
+        result.sort((a, b) => b.priceCents - a.priceCents);
       } else if (sort === 'name-asc') {
-        products.sort((a, b) => a.name.localeCompare(b.name));
+        result.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      return result;
+    };
+
+    if (!isSupabaseConfigured(cfg)) {
+      res.json({ products: applyFiltersAndSort(buildStarterCatalogSnapshot().products) });
+      return;
+    }
+
+    try {
+      const supabase = createPublicSupabaseClient(cfg);
+      const { data, error } = await supabase
+        .from('products')
+        .select(PRODUCT_SELECT)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
+
+      if (error) {
+        if (isMissingSchemaError(error)) {
+          res.json({ products: applyFiltersAndSort(buildStarterCatalogSnapshot().products) });
+          return;
+        }
+        res.status(503).json({ error: 'Could not query products from Supabase.' });
+        return;
       }
 
+      const products = applyFiltersAndSort(
+        ((data || []) as Record<string, unknown>[]).map(formatPublicProduct)
+      );
       res.json({ products });
     } catch {
       res.status(503).json({ error: 'Unable to fetch products from Supabase.' });
@@ -370,8 +417,22 @@ export function createPublicApiRouter(cfg: AppConfig) {
       res.status(400).json({ error: 'Invalid product ID.' });
       return;
     }
+
+    const sendStarterProduct = () => {
+      const starter = buildStarterCatalogSnapshot();
+      const found = starter.products.find((p) => p.id === id);
+      if (!found) {
+        res.status(404).json({ error: 'Product not found.' });
+        return;
+      }
+      const related = starter.products
+        .filter((p) => p.categoryId === found.categoryId && p.id !== found.id)
+        .slice(0, 4);
+      res.json({ product: found, related });
+    };
+
     if (!isSupabaseConfigured(cfg)) {
-      res.status(404).json({ error: 'Product not found.' });
+      sendStarterProduct();
       return;
     }
 
@@ -383,7 +444,16 @@ export function createPublicApiRouter(cfg: AppConfig) {
         .eq('id', id)
         .maybeSingle();
 
-      if (error || !row) {
+      if (error) {
+        if (isMissingSchemaError(error)) {
+          sendStarterProduct();
+          return;
+        }
+        res.status(503).json({ error: 'Could not query product from Supabase.' });
+        return;
+      }
+
+      if (!row) {
         res.status(404).json({ error: 'Product not found.' });
         return;
       }

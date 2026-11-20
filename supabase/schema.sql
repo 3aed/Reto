@@ -820,7 +820,54 @@ BEGIN
 END;
 $$;
 
+-- One-time initial administrator registration (succeeds ONLY when public.admin_users has 0 rows)
+CREATE OR REPLACE FUNCTION public.bootstrap_first_admin()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_email TEXT;
+  v_count INTEGER;
+  v_row public.admin_users%ROWTYPE;
+BEGIN
+  IF v_uid IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT COUNT(*) INTO v_count FROM public.admin_users;
+  IF v_count > 0 THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT email INTO v_email FROM auth.users WHERE id = v_uid LIMIT 1;
+  IF v_email IS NULL OR LENGTH(TRIM(v_email)) = 0 THEN
+    RETURN NULL;
+  END IF;
+
+  INSERT INTO public.admin_users (user_id, email, role, active)
+  VALUES (v_uid, LOWER(TRIM(v_email)), 'super_admin', TRUE)
+  ON CONFLICT (user_id) DO NOTHING
+  RETURNING * INTO v_row;
+
+  IF v_row.user_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'user_id', v_row.user_id,
+    'email', v_row.email,
+    'role', v_row.role,
+    'active', v_row.active
+  );
+END;
+$$;
+
 REVOKE ALL ON FUNCTION public.build_order_payload(BIGINT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.bootstrap_first_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.bootstrap_first_admin() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_guest_order(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.lookup_guest_order(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.submit_manual_crypto_payment(TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT) TO anon, authenticated;

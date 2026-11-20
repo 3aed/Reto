@@ -12,9 +12,12 @@ import {
   extractStorageObjectPath,
   getPublicStorageUrl,
 } from '../supabase.ts';
+import { ensureInitialAdminAccount, tryAutoAuthorizeAdminRow } from '../admin-bootstrap.ts';
+import { seedCatalogWithClient } from '../catalog-seed.ts';
 import type { AdminRequest } from '../security.ts';
 import {
   clearAdminAuthCookies,
+  createLoginBruteForceGuard,
   createRateLimiter,
   detectImageMagicBytes,
   generateSecureToken,
@@ -33,6 +36,7 @@ import {
   sanitizeWhatsAppContact,
   setAdminAuthCookies,
   slugify,
+  timingSafeEqualStr,
   writeAuditLog,
 } from '../security.ts';
 
@@ -201,17 +205,32 @@ export function createPrivateAdminPageRouter(cfg: AppConfig) {
 export function createAdminApiRouter(cfg: AppConfig) {
   const router = express.Router();
 
-  const loginLimiter = createRateLimiter({
+  const loginRequestFloodLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 15,
-    keyPrefix: 'admin-login',
-    message: 'Too many login attempts from this IP address. Please wait 15 minutes.',
+    max: 30,
+    keyPrefix: 'admin-login-flood',
+    message: 'Too many login requests from this IP address. Please wait before trying again.',
   });
 
+  const loginBruteForceGuard = createLoginBruteForceGuard({
+    maxFailures: 5,
+    windowMs: 15 * 60 * 1000,
+    baseCooldownMs: 5 * 60 * 1000,
+    maxCooldownMs: 30 * 60 * 1000,
+  });
+
+  function formatCooldown(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0 && secs > 0) return `${mins}m ${secs}s`;
+    if (mins > 0) return `${mins} minute${mins === 1 ? '' : 's'}`;
+    return `${secs} second${secs === 1 ? '' : 's'}`;
+  }
+
   /* ------------------------------------------------------------------------
-     SUPABASE AUTH ENDPOINTS (Pre-Authentication)
+     SUPABASE AUTH ENDPOINTS (Pre-Authentication + Server-Side Rate Limiting)
      ------------------------------------------------------------------------ */
-  router.post('/auth/login', loginLimiter, async (req: Request, res: Response) => {
+  router.post('/auth/login', loginRequestFloodLimiter, async (req: Request, res: Response) => {
     if (!isSupabaseConfigured(cfg)) {
       res.status(503).json({
         error: `Supabase is not configured. Missing: ${getMissingSupabaseVars(cfg).join(', ')}`,
@@ -224,37 +243,141 @@ export function createAdminApiRouter(cfg: AppConfig) {
     const password = String(body.password || '');
     const ip = getClientIp(req);
 
+    const guardCheck = loginBruteForceGuard.check(ip, email);
+    if (!guardCheck.allowed) {
+      res.setHeader('Retry-After', String(guardCheck.retryAfterSeconds));
+      res.status(429).json({
+        error: `Too many failed login attempts. Please wait ${formatCooldown(guardCheck.retryAfterSeconds)} before trying again.`,
+        retryAfterSeconds: guardCheck.retryAfterSeconds,
+      });
+      return;
+    }
+
     if (!isValidEmail(email) || !password) {
       res.status(400).json({ error: 'Valid email address and password are required.' });
       return;
     }
 
+    const failAndRespond = (status: number, baseMessage: string) => {
+      const outcome = loginBruteForceGuard.recordFailure(ip, email);
+      if (outcome.locked) {
+        res.setHeader('Retry-After', String(outcome.retryAfterSeconds));
+        res.status(429).json({
+          error: `Too many failed login attempts. Login is temporarily locked for ${formatCooldown(outcome.retryAfterSeconds)}.`,
+          retryAfterSeconds: outcome.retryAfterSeconds,
+        });
+        return;
+      }
+      res.status(status).json({
+        error: baseMessage,
+        remainingAttempts: outcome.remainingAttempts,
+      });
+    };
+
     try {
       const publicClient = createPublicSupabaseClient(cfg);
-      const { data: authData, error: authError } = await publicClient.auth.signInWithPassword({
+      let { data: authData, error: authError } = await publicClient.auth.signInWithPassword({
         email,
         password,
       });
 
+      // If sign-in failed and credentials match server-side ADMIN_EMAIL + ADMIN_PASSWORD,
+      // attempt automatic initial Supabase Auth provisioning once and retry sign-in.
+      const matchesBootstrapEnv =
+        Boolean(cfg.adminBootstrap.email && cfg.adminBootstrap.password) &&
+        timingSafeEqualStr(email, cfg.adminBootstrap.email) &&
+        timingSafeEqualStr(password, cfg.adminBootstrap.password);
+
+      if ((authError || !authData?.session) && matchesBootstrapEnv) {
+        if (cfg.supabase.serviceRoleKey) {
+          const boot = await ensureInitialAdminAccount(cfg, { syncPassword: true });
+          if (boot.provisioned) {
+            const retried = await publicClient.auth.signInWithPassword({ email, password });
+            authData = retried.data;
+            authError = retried.error;
+          }
+        } else if (
+          authError &&
+          !/email not confirmed/i.test(String(authError.message || '')) &&
+          !/invalid api key/i.test(String(authError.message || ''))
+        ) {
+          // Without service role key, attempt one-time Supabase Auth signUp for the configured initial admin
+          const { data: signUpData, error: signUpErr } = await publicClient.auth.signUp({
+            email,
+            password,
+          });
+          if (!signUpErr && signUpData?.session && signUpData?.user) {
+            authData = { session: signUpData.session, user: signUpData.user } as typeof authData;
+            authError = null;
+          } else if (!signUpErr && signUpData?.user && !signUpData?.session) {
+            res.status(403).json({
+              error:
+                'Initial administrator account was created in Supabase Auth, but email confirmation is enabled. Open Supabase Dashboard -> Authentication -> Users, confirm this user, and then sign in again.',
+            });
+            return;
+          }
+        }
+      }
+
       if (authError || !authData?.session || !authData?.user) {
-        res.status(401).json({ error: 'Invalid administrator email address or password.' });
+        const errMsg = String(authError?.message || '');
+        const errCode = String((authError as { code?: string } | null)?.code || '');
+        console.warn(
+          `[RetroMarket Auth] Sign-in rejected for ${email} (${errCode || authError?.status || 'no_session'}): ${errMsg}`
+        );
+
+        if (errCode === 'email_not_confirmed' || /email not confirmed/i.test(errMsg)) {
+          res.status(403).json({
+            error:
+              'This administrator account exists in Supabase Auth but its email is not confirmed. Open Supabase Dashboard -> Authentication -> Users and confirm the user.',
+          });
+          return;
+        }
+
+        if (/invalid api key/i.test(errMsg) || /api key/i.test(errMsg)) {
+          res.status(503).json({
+            error:
+              'Supabase rejected the configured SUPABASE_ANON_KEY. Verify SUPABASE_URL and SUPABASE_ANON_KEY in your environment variables.',
+          });
+          return;
+        }
+
+        failAndRespond(401, 'Invalid administrator email address or password.');
         return;
       }
 
       const authedClient = createAuthedSupabaseClient(cfg, authData.session.access_token);
-      const { data: adminRow, error: adminErr } = await authedClient
+      let { data: adminRow, error: adminErr } = await authedClient
         .from('admin_users')
         .select('user_id, email, role, active')
         .eq('user_id', authData.user.id)
         .eq('active', true)
         .maybeSingle();
 
-      if (adminErr || !adminRow) {
-        res.status(403).json({
-          error: 'This Supabase account is not authorized as a RetroMarket administrator.',
+      // Detect missing schema (table public.admin_users not created yet)
+      if (adminErr && (adminErr.code === '42P01' || adminErr.code === 'PGRST205')) {
+        res.status(503).json({
+          error:
+            'Supabase table public.admin_users does not exist yet. Run supabase/schema.sql in your Supabase SQL Editor first.',
         });
         return;
       }
+
+      // If Supabase Auth succeeded but admin_users row does not exist yet, attempt safe auto-authorization
+      if (!adminRow) {
+        adminRow = await tryAutoAuthorizeAdminRow(cfg, authedClient, authData.user);
+      }
+
+      if (!adminRow) {
+        failAndRespond(
+          403,
+          'This Supabase Auth user is not authorized in public.admin_users. Add their User UID to public.admin_users in Supabase SQL Editor.'
+        );
+        return;
+      }
+
+      // Reset brute-force failure tracking on successful login
+      loginBruteForceGuard.recordSuccess(ip, email);
 
       await authedClient
         .from('admin_users')
@@ -289,7 +412,11 @@ export function createAdminApiRouter(cfg: AppConfig) {
         },
         csrfToken,
       });
-    } catch {
+    } catch (err) {
+      console.error(
+        '[RetroMarket Auth] Unexpected login error:',
+        err instanceof Error ? err.message : 'unknown'
+      );
       res.status(500).json({ error: 'Authentication service unavailable.' });
     }
   });
@@ -679,6 +806,68 @@ export function createAdminApiRouter(cfg: AppConfig) {
     });
 
     res.json({ seller: data });
+  });
+
+  router.delete('/sellers/:id', async (req: AdminRequest, res: Response) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Invalid seller ID.' });
+      return;
+    }
+
+    const sb = req.supabase!;
+    const { count } = await sb
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('seller_id', id);
+
+    if ((count || 0) > 0) {
+      res.status(409).json({
+        error: `Cannot delete seller while ${count} product(s) are assigned to them. Reassign or delete those products first.`,
+      });
+      return;
+    }
+
+    const { error } = await sb.from('sellers').delete().eq('id', id);
+    if (error) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'SELLER_DELETED',
+      targetType: 'seller',
+      targetId: String(id),
+      ipAddress: getClientIp(req),
+    });
+
+    res.json({ ok: true });
+  });
+
+  /* ------------------------------------------------------------------------
+     ADMIN CATALOG INITIALIZATION (Idempotent Starter Catalog via Admin RLS)
+     ------------------------------------------------------------------------ */
+  router.post('/catalog/seed', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    try {
+      const summary = await seedCatalogWithClient(sb);
+      await writeAuditLog(sb, {
+        adminUserId: req.admin!.userId,
+        adminEmail: req.admin!.email,
+        action: 'CATALOG_POPULATED',
+        targetType: 'catalog',
+        targetId: String(summary.productsInserted),
+        details: { ...summary },
+        ipAddress: getClientIp(req),
+      });
+      res.status(201).json({ ok: true, ...summary });
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to populate catalog.',
+      });
+    }
   });
 
   /* ------------------------------------------------------------------------
