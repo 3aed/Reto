@@ -35,6 +35,7 @@
 
   function getStatusClass(status) {
     switch (status) {
+      case 'Pending Verification':
       case 'Awaiting Verification':
         return 'pay-status-awaiting';
       case 'Paid':
@@ -460,8 +461,8 @@
     let activeOrder = null;
     let activeEmail = '';
     let currentMethod = 'cybersource';
-    let currentCryptoCoin = 'BTC';
-    let activeCryptoInvoice = null;
+    let cryptoMethods = [];
+    let selectedCryptoMethodId = null;
 
     function activateMethodTab(methodCode) {
       if (!PAYMENT_METHODS[methodCode]) return;
@@ -481,6 +482,115 @@
     document.querySelectorAll('.payment-tab-btn').forEach((btn) => {
       btn.addEventListener('click', () => activateMethodTab(btn.getAttribute('data-payment-tab')));
     });
+
+    function renderSelectedCryptoDetails() {
+      const detailsWrap = document.getElementById('crypto-method-details');
+      const emptyNotice = document.getElementById('crypto-empty-notice');
+      const submitBtn = document.getElementById('crypto-submit-btn');
+      const selected = cryptoMethods.find((m) => m.id === selectedCryptoMethodId) || null;
+
+      if (!selected) {
+        if (detailsWrap) detailsWrap.classList.add('is-hidden');
+        if (emptyNotice) emptyNotice.classList.add('is-visible');
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+      }
+
+      if (emptyNotice) emptyNotice.classList.remove('is-visible');
+      if (detailsWrap) detailsWrap.classList.remove('is-hidden');
+      if (submitBtn) {
+        submitBtn.disabled =
+          !activeOrder ||
+          activeOrder.paymentStatus === 'Paid' ||
+          activeOrder.orderStatus === 'Cancelled';
+      }
+
+      const nameEl = document.getElementById('crypto-detail-name');
+      const netEl = document.getElementById('crypto-detail-network');
+      const addrInput = document.getElementById('crypto-wallet-address');
+      const qrRow = document.getElementById('crypto-qr-row');
+      const qrImg = document.getElementById('crypto-qr-img');
+      const instRow = document.getElementById('crypto-instructions-row');
+      const instBox = document.getElementById('crypto-instructions-box');
+
+      if (nameEl) nameEl.innerHTML = '<strong>' + escapeHtml(selected.name) + ' (' + escapeHtml(selected.symbol) + ')</strong>';
+      if (netEl) netEl.textContent = selected.network || '—';
+      if (addrInput) addrInput.value = selected.walletAddress || '';
+
+      const safeQr =
+        selected.qrCodeUrl && window.RetroMarketData
+          ? window.RetroMarketData.sanitizeAssetUrl(selected.qrCodeUrl, '')
+          : selected.qrCodeUrl || '';
+      if (qrRow && qrImg) {
+        if (safeQr) {
+          qrImg.src = safeQr;
+          qrImg.alt = selected.name + ' QR Code';
+          qrRow.classList.remove('is-hidden');
+        } else {
+          qrImg.removeAttribute('src');
+          qrRow.classList.add('is-hidden');
+        }
+      }
+
+      if (instRow && instBox) {
+        if (selected.instructions) {
+          instBox.textContent = selected.instructions;
+          instRow.classList.remove('is-hidden');
+        } else {
+          instBox.textContent = '';
+          instRow.classList.add('is-hidden');
+        }
+      }
+    }
+
+    function renderCryptoSelectorButtons() {
+      const container = document.getElementById('crypto-method-buttons');
+      const caps = window.RetroMarketData ? window.RetroMarketData.getPaymentCapabilities() : null;
+      cryptoMethods = Array.isArray(caps?.cryptocurrency?.methods)
+        ? caps.cryptocurrency.methods
+        : [];
+
+      if (!container) return;
+
+      if (cryptoMethods.length === 0) {
+        container.innerHTML = '<span class="text-muted">None configured</span>';
+        selectedCryptoMethodId = null;
+        renderSelectedCryptoDetails();
+        return;
+      }
+
+      if (!cryptoMethods.some((m) => m.id === selectedCryptoMethodId)) {
+        selectedCryptoMethodId = cryptoMethods[0].id;
+      }
+
+      container.innerHTML = cryptoMethods
+        .map(
+          (m) => `
+          <button
+            type="button"
+            class="crypto-coin-btn ${m.id === selectedCryptoMethodId ? 'is-active' : ''}"
+            data-crypto-id="${m.id}"
+            aria-pressed="${String(m.id === selectedCryptoMethodId)}"
+          >
+            ${escapeHtml(m.symbol)} &mdash; ${escapeHtml(m.name)} (${escapeHtml(m.network)})
+          </button>`
+        )
+        .join(' ');
+
+      container.querySelectorAll('.crypto-coin-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          selectedCryptoMethodId = Number(btn.getAttribute('data-crypto-id'));
+          container.querySelectorAll('.crypto-coin-btn').forEach((b) => {
+            const active = Number(b.getAttribute('data-crypto-id')) === selectedCryptoMethodId;
+            b.classList.toggle('is-active', active);
+            b.setAttribute('aria-pressed', String(active));
+          });
+          renderSelectedCryptoDetails();
+        });
+      });
+
+      renderSelectedCryptoDetails();
+    }
 
     function renderActiveOrder() {
       if (!activeOrder) {
@@ -530,42 +640,28 @@
       if (manualNameInput) manualNameInput.value = activeOrder.customer.fullName;
       if (manualEmailInput) manualEmailInput.value = activeOrder.customer.email;
 
-      // Render CyberSource config status
-      const caps = window.RetroMarketData ? window.RetroMarketData.getPaymentCapabilities() : null;
-      const csStatusNotice = document.getElementById('cs-config-notice');
       const csInitBtn = document.getElementById('cs-initiate-btn');
-      if (csStatusNotice && caps?.cybersource) {
-        if (caps.cybersource.configured) {
-          csStatusNotice.className = 'notice-box section-gap';
-          csStatusNotice.innerHTML =
-            '<strong>CyberSource Secure Acceptance Connected (' +
-            escapeHtml(caps.cybersource.environment.toUpperCase()) +
-            '):</strong> Click below to generate a server-signed session and redirect to CyberSource Hosted Checkout.';
-        } else {
-          csStatusNotice.className = 'notice-box section-gap';
-          csStatusNotice.innerHTML =
-            '<strong>CyberSource Payment Gateway Ready:</strong> Click <strong>Proceed to CyberSource Hosted Checkout</strong> below to open the Payment Details card interface for this order. Live settlement activates automatically once merchant Secure Acceptance credentials are configured on the server.';
-        }
-      }
       if (csInitBtn) {
         csInitBtn.disabled =
           activeOrder.paymentStatus === 'Paid' || activeOrder.orderStatus === 'Cancelled';
       }
 
-      // Render payment attempts history from real DB
+      renderCryptoSelectorButtons();
+
+      // Render payment attempts history from Supabase
       const historyBody = document.getElementById('payment-history-body');
       if (historyBody) {
         const pays = activeOrder.payments || [];
         if (pays.length === 0) {
           historyBody.innerHTML =
-            '<tr><td colspan="7" class="text-center text-muted">No payment transactions have been initiated for this order yet.</td></tr>';
+            '<tr><td colspan="7" class="text-center text-muted">No payment transactions have been recorded for this order yet.</td></tr>';
         } else {
           historyBody.innerHTML = pays
             .map(
               (p) => `
             <tr>
               <td class="mono-ref">${escapeHtml(p.paymentRef)}</td>
-              <td>${escapeHtml(p.method)}${p.cryptoCurrency ? ' (' + escapeHtml(p.cryptoCurrency) + ')' : ''}</td>
+              <td>${escapeHtml(p.method)}${p.cryptoCurrency ? ' (' + escapeHtml(p.cryptoCurrency) + (p.cryptoNetwork ? ' / ' + escapeHtml(p.cryptoNetwork) : '') + ')' : ''}</td>
               <td class="col-right price">${formatPrice(p.amount, p.currency)}</td>
               <td class="col-center">${escapeHtml(p.currency)}</td>
               <td class="mono-ref">${escapeHtml(p.transactionRef || '—')}</td>
@@ -577,37 +673,10 @@
         }
       }
 
-      // Render latest crypto invoice if one exists
-      const latestCrypto = (activeOrder.payments || []).find((p) => p.method === 'cryptocurrency');
-      if (latestCrypto) {
-        activeCryptoInvoice = latestCrypto;
-        renderCryptoInvoiceDetails(latestCrypto);
-      }
-
       const urlMethod = params.get('method');
       activateMethodTab(
         urlMethod && PAYMENT_METHODS[urlMethod] ? urlMethod : activeOrder.paymentMethod
       );
-    }
-
-    function renderCryptoInvoiceDetails(inv) {
-      const box = document.getElementById('crypto-invoice-details');
-      if (!box) return;
-      if (!inv) {
-        box.classList.add('is-hidden');
-        return;
-      }
-      box.classList.remove('is-hidden');
-      const setTxt = (id, v) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = v;
-      };
-      setTxt('crypto-inv-ref', inv.paymentRef || '');
-      setTxt('crypto-inv-coin', (inv.cryptoCurrency || inv.coin || '') + ' (' + (inv.cryptoNetwork || inv.network || '') + ')');
-      setTxt('crypto-inv-amount', (inv.cryptoExpectedAmount || inv.cryptoAmount || '') + ' ' + (inv.cryptoCurrency || inv.coin || ''));
-      setTxt('crypto-inv-expires', inv.expiresAt || '');
-      const addrInput = document.getElementById('crypto-wallet-address');
-      if (addrInput) addrInput.value = inv.cryptoWalletAddress || inv.walletAddress || '';
     }
 
     async function loadOrder(orderNumber, email) {
@@ -655,14 +724,12 @@
       loadOrder(ord, em);
     });
 
-    // CyberSource Hosted Checkout Initiation (Purchase-Only Trigger)
+    // CyberSource Frontend-Only Placeholder Modal Trigger (Never connects to CyberSource APIs)
     const csInitBtn = document.getElementById('cs-initiate-btn');
     const csFeedback = document.getElementById('cs-action-feedback');
-    csInitBtn?.addEventListener('click', async () => {
-      if (!activeOrder || !activeEmail) return;
-
-      const caps = window.RetroMarketData ? window.RetroMarketData.getPaymentCapabilities() : null;
-      if (!caps?.cybersource?.configured && window.RetroMarketCyberSourceGateway) {
+    csInitBtn?.addEventListener('click', () => {
+      if (!activeOrder) return;
+      if (window.RetroMarketCyberSourceGateway) {
         window.RetroMarketCyberSourceGateway.open({
           orderNumber: activeOrder.orderNumber,
           formattedAmount:
@@ -670,117 +737,28 @@
           onComplete: (summary) => {
             if (csFeedback) {
               csFeedback.textContent =
-                'Card details verified in gateway (' +
+                'CyberSource payment processing is currently unavailable. Card format was checked locally (' +
                 summary.brand +
                 ' ' +
                 summary.maskedNumber +
-                '). Order payment status remains ' +
+                '), no transaction was processed, and order status remains ' +
                 activeOrder.paymentStatus +
-                ' until live CyberSource merchant settlement is configured.';
+                '.';
               csFeedback.className = 'inline-message is-visible';
             }
           },
           onCancel: () => {
             if (csFeedback) {
-              csFeedback.textContent = 'Payment gateway closed. Your order remains saved.';
+              csFeedback.textContent =
+                'CyberSource preview closed. CyberSource payment processing is currently unavailable; please choose Cryptocurrency or Manual Payment.';
               csFeedback.className = 'inline-message is-visible';
             }
           },
         });
-        return;
-      }
-
-      csInitBtn.disabled = true;
-      try {
-        const resp = await fetch('/api/payments/cybersource/create-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderNumber: activeOrder.orderNumber, email: activeEmail }),
-        });
-        const data = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-          if (csFeedback) {
-            csFeedback.textContent = data.error || 'Could not initiate CyberSource checkout.';
-            csFeedback.className = 'error-box is-visible';
-          }
-          return;
-        }
-        // Build and submit genuine server-signed POST form to CyberSource Hosted Checkout
-        const postForm = document.createElement('form');
-        postForm.method = 'POST';
-        postForm.action = data.actionUrl;
-        for (const [k, v] of Object.entries(data.fields || {})) {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = k;
-          input.value = String(v);
-          postForm.appendChild(input);
-        }
-        document.body.appendChild(postForm);
-        postForm.submit();
-      } catch {
-        if (csFeedback) {
-          csFeedback.textContent = 'Network error contacting payment server.';
-          csFeedback.className = 'error-box is-visible';
-        }
-      } finally {
-        csInitBtn.disabled = false;
       }
     });
 
-    // Cryptocurrency Coin Selector + Invoice Generation + Tx Submission
-    document.querySelectorAll('.crypto-coin-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        currentCryptoCoin = btn.getAttribute('data-crypto-coin') || 'BTC';
-        document.querySelectorAll('.crypto-coin-btn').forEach((b) => {
-          const active = b === btn;
-          b.classList.toggle('is-active', active);
-          b.setAttribute('aria-pressed', String(active));
-        });
-      });
-    });
-
-    const createCryptoBtn = document.getElementById('crypto-generate-invoice-btn');
-    const cryptoFeedback = document.getElementById('crypto-tx-feedback');
-    createCryptoBtn?.addEventListener('click', async () => {
-      if (!activeOrder || !activeEmail) return;
-      createCryptoBtn.disabled = true;
-      try {
-        const resp = await fetch('/api/payments/crypto/create-invoice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderNumber: activeOrder.orderNumber,
-            email: activeEmail,
-            coin: currentCryptoCoin,
-          }),
-        });
-        const data = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-          if (cryptoFeedback) {
-            cryptoFeedback.textContent = data.error || 'Could not generate cryptocurrency invoice.';
-            cryptoFeedback.className = 'error-box is-visible';
-          }
-          return;
-        }
-        activeCryptoInvoice = data.invoice;
-        renderCryptoInvoiceDetails(data.invoice);
-        if (cryptoFeedback) {
-          cryptoFeedback.textContent =
-            'Invoice ' + data.invoice.paymentRef + ' generated. Send the exact amount before expiration.';
-          cryptoFeedback.className = 'inline-message is-visible';
-        }
-        await loadOrder(activeOrder.orderNumber, activeEmail);
-      } catch {
-        if (cryptoFeedback) {
-          cryptoFeedback.textContent = 'Network error generating cryptocurrency invoice.';
-          cryptoFeedback.className = 'error-box is-visible';
-        }
-      } finally {
-        createCryptoBtn.disabled = false;
-      }
-    });
-
+    // Manual Cryptocurrency Copy & Verification Submission
     document.getElementById('crypto-copy-btn')?.addEventListener('click', async () => {
       const addr = document.getElementById('crypto-wallet-address')?.value || '';
       const fb = document.getElementById('crypto-copy-feedback');
@@ -793,40 +771,50 @@
       }
     });
 
+    const cryptoFeedback = document.getElementById('crypto-tx-feedback');
     document.getElementById('crypto-tx-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!activeOrder || !activeEmail) return;
-      const txHash = (document.getElementById('crypto-tx-hash')?.value || '').trim();
+      if (!activeOrder || !activeEmail || !selectedCryptoMethodId) return;
+      const submitBtn = document.getElementById('crypto-submit-btn');
+      const txReference = (document.getElementById('crypto-tx-hash')?.value || '').trim();
+      const note = (document.getElementById('crypto-tx-note')?.value || '').trim();
+
+      if (submitBtn) submitBtn.disabled = true;
       try {
-        const resp = await fetch('/api/payments/crypto/submit-tx', {
+        const resp = await fetch('/api/payments/crypto/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             orderNumber: activeOrder.orderNumber,
             email: activeEmail,
-            paymentRef: activeCryptoInvoice?.paymentRef || '',
-            coin: currentCryptoCoin,
-            txHash,
+            cryptoMethodId: selectedCryptoMethodId,
+            txReference,
+            note,
           }),
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
           if (cryptoFeedback) {
-            cryptoFeedback.textContent = data.error || 'Transaction submission failed.';
+            cryptoFeedback.textContent = data.error || 'Payment submission failed.';
             cryptoFeedback.className = 'error-box is-visible';
           }
           return;
         }
         if (cryptoFeedback) {
-          cryptoFeedback.textContent = data.message || 'Transaction hash submitted.';
+          cryptoFeedback.textContent =
+            data.message ||
+            'Cryptocurrency payment reference submitted. Order status is Pending Verification.';
           cryptoFeedback.className = 'inline-message is-visible';
         }
+        document.getElementById('crypto-tx-form')?.reset();
         await loadOrder(activeOrder.orderNumber, activeEmail);
       } catch {
         if (cryptoFeedback) {
-          cryptoFeedback.textContent = 'Network error submitting transaction hash.';
+          cryptoFeedback.textContent = 'Network error submitting cryptocurrency payment confirmation.';
           cryptoFeedback.className = 'error-box is-visible';
         }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
       }
     });
 
@@ -874,30 +862,6 @@
         }
       }
     });
-
-    // Display CyberSource gateway return banner if redirected back from CyberSource
-    const gatewayStatus = params.get('gateway_status');
-    const returnedTxRef = params.get('tx_ref');
-    const returnBox = document.getElementById('cs-return-state-box');
-    if (gatewayStatus && returnBox) {
-      returnBox.classList.add('is-visible');
-      if (gatewayStatus === 'InvalidSignature') {
-        returnBox.classList.add('state-failed');
-        returnBox.textContent =
-          'CyberSource return signature could not be verified. Order payment status was not altered.';
-      } else {
-        returnBox.classList.add(
-          gatewayStatus === 'Failed' || gatewayStatus === 'Cancelled'
-            ? 'state-failed'
-            : 'state-awaiting'
-        );
-        returnBox.textContent =
-          'CyberSource return processed. Current status: ' +
-          gatewayStatus +
-          (returnedTxRef ? ' (Transaction Ref: ' + returnedTxRef + ')' : '') +
-          '. Final Paid settlement occurs strictly upon verified server webhook confirmation.';
-      }
-    }
 
     // Auto-load order if we have the matching session reference
     const urlOrder = (params.get('order') || '').trim();

@@ -2,44 +2,148 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import type { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
+import multer from 'multer';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AppConfig } from '../config.ts';
-import { getCryptoVerifierStatus, getMissingCyberSourceVars, getMissingSmtpVars } from '../config.ts';
-import type { DbConnection } from '../db.ts';
-import { purgeExpiredAdminSessions, runInTransaction } from '../db.ts';
+import { getMissingSupabaseVars, isSupabaseConfigured } from '../config.ts';
+import {
+  createAuthedSupabaseClient,
+  createPublicSupabaseClient,
+  extractStorageObjectPath,
+  getPublicStorageUrl,
+} from '../supabase.ts';
 import type { AdminRequest } from '../security.ts';
 import {
-  clearAdminSessionCookie,
+  clearAdminAuthCookies,
   createRateLimiter,
+  detectImageMagicBytes,
   generateSecureToken,
   getAuthenticatedAdmin,
   getClientIp,
-  isStrongPassword,
   isValidEmail,
+  isValidPhone,
   parseCents,
   requireAdminAuth,
   requireAdminCsrf,
+  sanitizeExternalUrl,
   sanitizeImageUrl,
-  setAdminSessionCookie,
-  sha256Hex,
+  sanitizeKeyValueMap,
+  sanitizeSellerContact,
+  sanitizeTelegramContact,
+  sanitizeWhatsAppContact,
+  setAdminAuthCookies,
   slugify,
   writeAuditLog,
 } from '../security.ts';
-import { EmailNotConfiguredError, isEmailConfigured, sendAdminPasswordResetEmail } from '../mailer.ts';
 
-const BCRYPT_ROUNDS = 12;
-const MAX_FAILED_LOGINS = 5;
-const LOCKOUT_MINUTES = 15;
-
+const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB per image
+const MAX_UPLOAD_FILES_PER_REQUEST = 10;
+const MAX_PRODUCT_IMAGES = 12;
 const ALLOWED_ORDER_STATUSES = ['Pending', 'Processing', 'Shipped', 'Completed', 'Cancelled'];
 const ALLOWED_PAYMENT_STATUSES = [
   'Pending',
-  'Awaiting Verification',
+  'Pending Verification',
   'Paid',
   'Failed',
   'Cancelled',
   'Refunded',
 ];
+
+function collectProductImageUrls(imageUrl: unknown, galleryJson: unknown): string[] {
+  const urls: string[] = [];
+  if (typeof imageUrl === 'string' && imageUrl.trim()) {
+    urls.push(imageUrl.trim());
+  }
+  const gallery = Array.isArray(galleryJson)
+    ? galleryJson
+    : typeof galleryJson === 'string'
+      ? (() => {
+          try {
+            const p = JSON.parse(galleryJson);
+            return Array.isArray(p) ? p : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  for (const item of gallery) {
+    if (item && typeof item === 'object' && typeof (item as { src?: unknown }).src === 'string') {
+      urls.push(String((item as { src: string }).src).trim());
+    }
+  }
+  return urls;
+}
+
+async function cleanupOrphanedStorageUrls(
+  supabase: SupabaseClient,
+  cfg: AppConfig,
+  candidateUrls: string[]
+): Promise<void> {
+  const objectPaths = new Set<string>();
+  for (const url of candidateUrls) {
+    const objPath = extractStorageObjectPath(cfg, url);
+    if (objPath) objectPaths.add(objPath);
+  }
+  if (objectPaths.size === 0) return;
+
+  // Check remaining references across products & crypto_payment_methods
+  const [{ data: prodRows }, { data: cryptoRows }] = await Promise.all([
+    supabase.from('products').select('image_url, gallery_json'),
+    supabase.from('crypto_payment_methods').select('qr_code_url'),
+  ]);
+
+  const referenced = new Set<string>();
+  for (const row of (prodRows || []) as Record<string, unknown>[]) {
+    for (const u of collectProductImageUrls(row.image_url, row.gallery_json)) {
+      const p = extractStorageObjectPath(cfg, u);
+      if (p) referenced.add(p);
+    }
+  }
+  for (const row of (cryptoRows || []) as Record<string, unknown>[]) {
+    const p = extractStorageObjectPath(cfg, String(row.qr_code_url || ''));
+    if (p) referenced.add(p);
+  }
+
+  const toDelete = Array.from(objectPaths).filter((p) => !referenced.has(p));
+  if (toDelete.length > 0) {
+    await supabase.storage.from(cfg.supabase.storageBucket).remove(toDelete).catch(() => {});
+  }
+}
+
+function sanitizeGalleryInput(
+  rawImages: unknown,
+  fallbackUrl: string,
+  productName: string
+): Array<{ src: string; caption: string }> {
+  const cleaned: Array<{ src: string; caption: string }> = [];
+  const seen = new Set<string>();
+
+  if (Array.isArray(rawImages)) {
+    for (const entry of rawImages) {
+      if (cleaned.length >= MAX_PRODUCT_IMAGES) break;
+      const rawSrc =
+        typeof entry === 'string'
+          ? entry
+          : entry && typeof entry === 'object'
+            ? String((entry as Record<string, unknown>).src || '')
+            : '';
+      const safeSrc = sanitizeImageUrl(rawSrc, '');
+      if (!safeSrc || seen.has(safeSrc)) continue;
+      seen.add(safeSrc);
+      const caption =
+        entry && typeof entry === 'object'
+          ? String((entry as Record<string, unknown>).caption || '').trim().slice(0, 140)
+          : '';
+      cleaned.push({ src: safeSrc, caption: caption || productName });
+    }
+  }
+
+  if (cleaned.length === 0) {
+    const safeFallback = sanitizeImageUrl(fallbackUrl, 'assets/images/retro-keyboard.jpg');
+    cleaned.push({ src: safeFallback, caption: productName });
+  }
+  return cleaned;
+}
 
 function renderPrivateAdminHtml(fileName: string, adminBasePath: string): string {
   const filePath = path.resolve(process.cwd(), 'private', 'admin', fileName);
@@ -47,11 +151,10 @@ function renderPrivateAdminHtml(fileName: string, adminBasePath: string): string
   return html.replace(/__ADMIN_BASE__/g, adminBasePath);
 }
 
-export function createPrivateAdminPageRouter(db: DbConnection, cfg: AppConfig) {
+export function createPrivateAdminPageRouter(cfg: AppConfig) {
   const router = express.Router();
   const basePath = `/${cfg.adminSecretPath}`;
 
-  // Static admin-only assets (CSS/JS) served ONLY under the secret private route
   router.get('/assets/admin.css', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/css; charset=utf-8');
     res.sendFile(path.resolve(process.cwd(), 'private', 'admin', 'admin.css'));
@@ -62,9 +165,9 @@ export function createPrivateAdminPageRouter(db: DbConnection, cfg: AppConfig) {
     res.sendFile(path.resolve(process.cwd(), 'private', 'admin', 'admin-login.js'));
   });
 
-  router.get('/assets/admin-dashboard.js', (req: Request, res: Response) => {
-    const admin = getAuthenticatedAdmin(db, cfg, req);
-    if (!admin) {
+  router.get('/assets/admin-dashboard.js', async (req: Request, res: Response) => {
+    const resolved = await getAuthenticatedAdmin(cfg, req, res);
+    if (!resolved) {
       res.status(401).send('// Unauthorized');
       return;
     }
@@ -72,10 +175,9 @@ export function createPrivateAdminPageRouter(db: DbConnection, cfg: AppConfig) {
     res.sendFile(path.resolve(process.cwd(), 'private', 'admin', 'admin-dashboard.js'));
   });
 
-  // Dedicated Private Admin Login Page
-  router.get('/login', (req: Request, res: Response) => {
-    const admin = getAuthenticatedAdmin(db, cfg, req);
-    if (admin) {
+  router.get('/login', async (req: Request, res: Response) => {
+    const resolved = await getAuthenticatedAdmin(cfg, req, res);
+    if (resolved) {
       res.redirect(302, `${basePath}/`);
       return;
     }
@@ -83,16 +185,9 @@ export function createPrivateAdminPageRouter(db: DbConnection, cfg: AppConfig) {
     res.send(renderPrivateAdminHtml('login.html', basePath));
   });
 
-  // Dedicated Private Admin Password Reset Page
-  router.get('/reset-password', (_req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(renderPrivateAdminHtml('reset-password.html', basePath));
-  });
-
-  // Authenticated Admin Dashboard (Server-side redirect if unauthenticated)
-  router.get(['/', '/dashboard'], (req: Request, res: Response) => {
-    const admin = getAuthenticatedAdmin(db, cfg, req);
-    if (!admin) {
+  router.get(['/', '/dashboard'], async (req: Request, res: Response) => {
+    const resolved = await getAuthenticatedAdmin(cfg, req, res);
+    if (!resolved) {
       res.redirect(302, `${basePath}/login`);
       return;
     }
@@ -103,7 +198,7 @@ export function createPrivateAdminPageRouter(db: DbConnection, cfg: AppConfig) {
   return router;
 }
 
-export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
+export function createAdminApiRouter(cfg: AppConfig) {
   const router = express.Router();
 
   const loginLimiter = createRateLimiter({
@@ -113,18 +208,17 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
     message: 'Too many login attempts from this IP address. Please wait 15 minutes.',
   });
 
-  const resetRequestLimiter = createRateLimiter({
-    windowMs: 15 * 60 * 1000,
-    max: 5,
-    keyPrefix: 'admin-reset-request',
-    message: 'Too many password reset requests. Please try again later.',
-  });
-
   /* ------------------------------------------------------------------------
-     AUTH ENDPOINTS (Pre-Authentication)
+     SUPABASE AUTH ENDPOINTS (Pre-Authentication)
      ------------------------------------------------------------------------ */
   router.post('/auth/login', loginLimiter, async (req: Request, res: Response) => {
-    purgeExpiredAdminSessions(db);
+    if (!isSupabaseConfigured(cfg)) {
+      res.status(503).json({
+        error: `Supabase is not configured. Missing: ${getMissingSupabaseVars(cfg).join(', ')}`,
+      });
+      return;
+    }
+
     const body = (req.body || {}) as Record<string, unknown>;
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
@@ -135,307 +229,81 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
       return;
     }
 
-    const user = db
-      .prepare('SELECT * FROM admin_users WHERE LOWER(email) = LOWER(?) LIMIT 1')
-      .get(email) as
-      | {
-          id: number;
-          email: string;
-          password_hash: string;
-          role: string;
-          active: number;
-          failed_login_attempts: number;
-          locked_until: string | null;
-        }
-      | undefined;
-
-    if (!user || user.active !== 1) {
-      // Constant-work dummy bcrypt compare to avoid timing-based email enumeration
-      await bcrypt.compare(password, '$2a$12$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234');
-      writeAuditLog(db, {
-        adminEmail: email,
-        action: 'ADMIN_LOGIN_FAILED',
-        targetType: 'auth',
-        details: { reason: 'invalid_credentials' },
-        ipAddress: ip,
+    try {
+      const publicClient = createPublicSupabaseClient(cfg);
+      const { data: authData, error: authError } = await publicClient.auth.signInWithPassword({
+        email,
+        password,
       });
-      res.status(401).json({ error: 'Invalid email address or password.' });
-      return;
-    }
 
-    if (user.locked_until) {
-      const lockExpiry = Date.parse(user.locked_until.replace(' ', 'T') + 'Z');
-      if (Number.isFinite(lockExpiry) && Date.now() < lockExpiry) {
-        writeAuditLog(db, {
-          adminUserId: user.id,
-          adminEmail: user.email,
-          action: 'ADMIN_LOGIN_LOCKED',
-          targetType: 'auth',
-          ipAddress: ip,
-        });
-        res.status(429).json({
-          error: 'Account temporarily locked due to repeated failed sign-in attempts. Try again later.',
+      if (authError || !authData?.session || !authData?.user) {
+        res.status(401).json({ error: 'Invalid administrator email address or password.' });
+        return;
+      }
+
+      const authedClient = createAuthedSupabaseClient(cfg, authData.session.access_token);
+      const { data: adminRow, error: adminErr } = await authedClient
+        .from('admin_users')
+        .select('user_id, email, role, active')
+        .eq('user_id', authData.user.id)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (adminErr || !adminRow) {
+        res.status(403).json({
+          error: 'This Supabase account is not authorized as a RetroMarket administrator.',
         });
         return;
       }
-    }
 
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) {
-      const nextFails = user.failed_login_attempts + 1;
-      const shouldLock = nextFails >= MAX_FAILED_LOGINS;
-      const lockUntil = shouldLock
-        ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
-            .toISOString()
-            .replace('T', ' ')
-            .slice(0, 19)
-        : null;
+      await authedClient
+        .from('admin_users')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('user_id', authData.user.id);
 
-      db.prepare(
-        `
-        UPDATE admin_users
-        SET failed_login_attempts = ?, locked_until = ?, updated_at = datetime('now')
-        WHERE id = ?
-      `
-      ).run(nextFails, lockUntil, user.id);
-
-      writeAuditLog(db, {
-        adminUserId: user.id,
-        adminEmail: user.email,
-        action: 'ADMIN_LOGIN_FAILED',
-        targetType: 'auth',
-        details: { attempts: nextFails, locked: shouldLock },
-        ipAddress: ip,
+      const csrfToken = generateSecureToken(24);
+      setAdminAuthCookies(res, cfg, {
+        accessToken: authData.session.access_token,
+        refreshToken: authData.session.refresh_token,
+        csrfToken,
+        expiresInSec: authData.session.expires_in,
       });
 
-      res.status(401).json({ error: 'Invalid email address or password.' });
-      return;
-    }
-
-    const rawSessionToken = generateSecureToken(32);
-    const tokenHash = sha256Hex(rawSessionToken);
-    const csrfToken = generateSecureToken(24);
-    const expiresAt = new Date(Date.now() + cfg.adminSessionTtlMinutes * 60 * 1000)
-      .toISOString()
-      .replace('T', ' ')
-      .slice(0, 19);
-
-    runInTransaction(db, () => {
-      db.prepare(
-        `
-        UPDATE admin_users
-        SET failed_login_attempts = 0, locked_until = NULL, last_login_at = datetime('now'), updated_at = datetime('now')
-        WHERE id = ?
-      `
-      ).run(user.id);
-
-      db.prepare(
-        `
-        INSERT INTO admin_sessions (
-          token_hash, csrf_token, admin_user_id, ip_address, user_agent, expires_at
-        ) VALUES (?, ?, ?, ?, ?, ?)
-      `
-      ).run(
-        tokenHash,
-        csrfToken,
-        user.id,
-        ip,
-        String(req.headers['user-agent'] || '').slice(0, 250),
-        expiresAt
-      );
-
-      writeAuditLog(db, {
-        adminUserId: user.id,
-        adminEmail: user.email,
+      await writeAuditLog(authedClient, {
+        adminUserId: String(adminRow.user_id),
+        adminEmail: String(adminRow.email),
         action: 'ADMIN_LOGIN_SUCCESS',
         targetType: 'auth',
         ipAddress: ip,
       });
-    });
 
-    setAdminSessionCookie(res, cfg, rawSessionToken);
-    res.json({
-      ok: true,
-      admin: {
-        email: user.email,
-        role: user.role,
-      },
-      csrfToken,
-    });
-  });
+      const expiresAt = authData.session.expires_at
+        ? new Date(authData.session.expires_at * 1000).toISOString().replace('T', ' ').slice(0, 19)
+        : 'Active Session';
 
-  router.post('/auth/forgot-password', resetRequestLimiter, async (req: Request, res: Response) => {
-    purgeExpiredAdminSessions(db);
-    const body = (req.body || {}) as Record<string, unknown>;
-    const email = String(body.email || '').trim().toLowerCase();
-    const ip = getClientIp(req);
-
-    if (!isValidEmail(email)) {
-      res.status(400).json({ error: 'Please enter a valid email address.' });
-      return;
-    }
-
-    if (!cfg.adminSecretPath) {
-      res.status(503).json({ error: 'Private admin route is not configured.' });
-      return;
-    }
-
-    // Refuse to simulate sending recovery emails if SMTP is not configured
-    if (!isEmailConfigured(cfg)) {
-      res.status(503).json({
-        error:
-          'Password recovery email delivery is not configured on this server. Configure SMTP environment variables to enable password reset emails.',
-        missingVars: getMissingSmtpVars(cfg),
+      res.json({
+        admin: {
+          email: adminRow.email,
+          role: adminRow.role,
+          expiresAt,
+        },
+        csrfToken,
       });
-      return;
+    } catch {
+      res.status(500).json({ error: 'Authentication service unavailable.' });
     }
-
-    const user = db
-      .prepare('SELECT id, email, active FROM admin_users WHERE LOWER(email) = LOWER(?) LIMIT 1')
-      .get(email) as { id: number; email: string; active: number } | undefined;
-
-    if (user && user.active === 1) {
-      const rawResetToken = generateSecureToken(32);
-      const tokenHash = sha256Hex(rawResetToken);
-      const expiresAt = new Date(Date.now() + cfg.adminPasswordResetTtlMinutes * 60 * 1000)
-        .toISOString()
-        .replace('T', ' ')
-        .slice(0, 19);
-
-      runInTransaction(db, () => {
-        // Invalidate previous unused tokens for this admin
-        db.prepare(
-          "UPDATE password_reset_tokens SET used_at = datetime('now') WHERE admin_user_id = ? AND used_at IS NULL"
-        ).run(user.id);
-
-        db.prepare(
-          `
-          INSERT INTO password_reset_tokens (token_hash, admin_user_id, expires_at)
-          VALUES (?, ?, ?)
-        `
-        ).run(tokenHash, user.id, expiresAt);
-
-        writeAuditLog(db, {
-          adminUserId: user.id,
-          adminEmail: user.email,
-          action: 'ADMIN_PASSWORD_RESET_REQUESTED',
-          targetType: 'auth',
-          ipAddress: ip,
-        });
-      });
-
-      const resetUrl = `${cfg.appUrl}/${cfg.adminSecretPath}/reset-password?token=${encodeURIComponent(rawResetToken)}`;
-      try {
-        await sendAdminPasswordResetEmail(
-          cfg,
-          user.email,
-          resetUrl,
-          cfg.adminPasswordResetTtlMinutes
-        );
-      } catch (err: unknown) {
-        if (err instanceof EmailNotConfiguredError) {
-          res.status(503).json({ error: err.message, missingVars: err.missingVars });
-          return;
-        }
-        res.status(502).json({
-          error: 'Email delivery provider failed to dispatch the password reset message.',
-        });
-        return;
-      }
-    }
-
-    // Generic non-enumerating response regardless of whether the email exists
-    res.json({
-      ok: true,
-      message:
-        'If an active administrator account matches that email address, a single-use password reset link has been sent.',
-    });
-  });
-
-  router.post('/auth/reset-password', resetRequestLimiter, async (req: Request, res: Response) => {
-    purgeExpiredAdminSessions(db);
-    const body = (req.body || {}) as Record<string, unknown>;
-    const token = String(body.token || '').trim();
-    const newPassword = String(body.newPassword || '');
-    const ip = getClientIp(req);
-
-    if (!token || token.length < 32) {
-      res.status(400).json({ error: 'Invalid or missing password reset token.' });
-      return;
-    }
-
-    const strength = isStrongPassword(newPassword);
-    if (!strength.valid) {
-      res.status(400).json({ error: strength.reason });
-      return;
-    }
-
-    const tokenHash = sha256Hex(token);
-    const tokenRow = db
-      .prepare(
-        `
-        SELECT t.id AS token_id, t.admin_user_id, u.email, u.active
-        FROM password_reset_tokens t
-        JOIN admin_users u ON u.id = t.admin_user_id
-        WHERE t.token_hash = ?
-          AND t.used_at IS NULL
-          AND t.expires_at > datetime('now')
-        LIMIT 1
-      `
-      )
-      .get(tokenHash) as
-      | { token_id: number; admin_user_id: number; email: string; active: number }
-      | undefined;
-
-    if (!tokenRow || tokenRow.active !== 1) {
-      res.status(400).json({ error: 'This password reset link is invalid, expired, or has already been used.' });
-      return;
-    }
-
-    const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-
-    runInTransaction(db, () => {
-      db.prepare(
-        `
-        UPDATE admin_users
-        SET password_hash = ?, failed_login_attempts = 0, locked_until = NULL, updated_at = datetime('now')
-        WHERE id = ?
-      `
-      ).run(newHash, tokenRow.admin_user_id);
-
-      // Single-use token invalidation + revoke all existing sessions
-      db.prepare("UPDATE password_reset_tokens SET used_at = datetime('now') WHERE id = ?").run(
-        tokenRow.token_id
-      );
-      db.prepare('DELETE FROM admin_sessions WHERE admin_user_id = ?').run(tokenRow.admin_user_id);
-
-      writeAuditLog(db, {
-        adminUserId: tokenRow.admin_user_id,
-        adminEmail: tokenRow.email,
-        action: 'ADMIN_PASSWORD_RESET_COMPLETED',
-        targetType: 'auth',
-        ipAddress: ip,
-      });
-    });
-
-    clearAdminSessionCookie(res, cfg);
-    res.json({
-      ok: true,
-      message: 'Administrator password updated. All previous sessions have been revoked. You may now sign in.',
-    });
   });
 
   /* ------------------------------------------------------------------------
-     AUTHENTICATED ADMIN ROUTES (Require Valid Server Session + CSRF on writes)
+     PROTECTED ADMIN ROUTES (Supabase JWT + admin_users RLS + CSRF)
      ------------------------------------------------------------------------ */
-  router.use(requireAdminAuth(db, cfg));
+  router.use(requireAdminAuth(cfg));
   router.use(requireAdminCsrf);
 
   router.get('/auth/me', (req: AdminRequest, res: Response) => {
     const admin = req.admin!;
     res.json({
       admin: {
-        id: admin.userId,
         email: admin.email,
         role: admin.role,
         expiresAt: admin.expiresAt,
@@ -444,165 +312,146 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
     });
   });
 
-  router.post('/auth/logout', (req: AdminRequest, res: Response) => {
+  router.post('/auth/logout', async (req: AdminRequest, res: Response) => {
     const admin = req.admin!;
-    db.prepare('DELETE FROM admin_sessions WHERE id = ?').run(admin.sessionId);
-    writeAuditLog(db, {
+    await writeAuditLog(req.supabase!, {
       adminUserId: admin.userId,
       adminEmail: admin.email,
       action: 'ADMIN_LOGOUT',
       targetType: 'auth',
       ipAddress: getClientIp(req),
     });
-    clearAdminSessionCookie(res, cfg);
+    try {
+      await req.supabase!.auth.signOut();
+    } catch {
+      // Ignore sign-out errors
+    }
+    clearAdminAuthCookies(res, cfg);
     res.json({ ok: true });
   });
 
   /* ------------------------------------------------------------------------
-     DASHBOARD OVERVIEW & REAL SYSTEM STATUS
+     DASHBOARD OVERVIEW
      ------------------------------------------------------------------------ */
-  router.get('/dashboard', (_req: AdminRequest, res: Response) => {
-    const productStats = db
-      .prepare(
-        `
-        SELECT
-          COUNT(*) AS total,
-          SUM(CASE WHEN in_stock = 1 AND stock_quantity > 0 THEN 1 ELSE 0 END) AS in_stock_count
-        FROM products
-      `
-      )
-      .get() as { total: number; in_stock_count: number | null };
+  router.get('/dashboard', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const [
+      prodsRes,
+      catsRes,
+      sellersRes,
+      ordersRes,
+      inquiriesRes,
+      cryptoRes,
+      auditRes,
+    ] = await Promise.all([
+      sb.from('products').select('id, in_stock, stock_quantity'),
+      sb.from('categories').select('id', { count: 'exact', head: true }),
+      sb.from('sellers').select('id, active'),
+      sb.from('orders').select('id, payment_status, total_cents'),
+      sb.from('seller_inquiries').select('id', { count: 'exact', head: true }),
+      sb.from('crypto_payment_methods').select('id, active'),
+      sb.from('audit_logs').select('*').order('id', { ascending: false }).limit(15),
+    ]);
 
-    const categoryStats = db
-      .prepare('SELECT COUNT(*) AS total FROM categories')
-      .get() as { total: number };
+    const prodRows = (prodsRes.data || []) as Array<{ in_stock: boolean; stock_quantity: number }>;
+    const sellerRows = (sellersRes.data || []) as Array<{ active: boolean }>;
+    const orderRows = (ordersRes.data || []) as Array<{ payment_status: string; total_cents: number }>;
+    const cryptoRows = (cryptoRes.data || []) as Array<{ active: boolean }>;
 
-    const sellerStats = db
-      .prepare(
-        `
-        SELECT
-          COUNT(*) AS total,
-          SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) AS active_count
-        FROM sellers
-      `
-      )
-      .get() as { total: number; active_count: number | null };
-
-    const orderStats = db
-      .prepare(
-        `
-        SELECT
-          COUNT(*) AS total,
-          COALESCE(SUM(CASE WHEN payment_status = 'Paid' THEN total_cents ELSE 0 END), 0) AS paid_revenue_cents
-        FROM orders
-      `
-      )
-      .get() as { total: number; paid_revenue_cents: number };
-
-    const pendingPayments = db
-      .prepare(
-        `
-        SELECT COUNT(*) AS total
-        FROM payments
-        WHERE status IN ('Pending', 'Awaiting Verification')
-      `
-      )
-      .get() as { total: number };
-
-    const inquiryStats = db
-      .prepare('SELECT COUNT(*) AS total FROM seller_inquiries')
-      .get() as { total: number };
-
-    const recentAudit = db
-      .prepare(
-        `
-        SELECT id, admin_email, action, target_type, target_id, details_json, ip_address, created_at
-        FROM audit_logs
-        ORDER BY id DESC
-        LIMIT 25
-      `
-      )
-      .all() as Array<Record<string, unknown>>;
+    const inStockProducts = prodRows.filter((p) => p.in_stock && p.stock_quantity > 0).length;
+    const activeSellers = sellerRows.filter((s) => s.active).length;
+    const pendingPayments = orderRows.filter(
+      (o) => o.payment_status === 'Pending' || o.payment_status === 'Pending Verification'
+    ).length;
+    const paidRevenueCents = orderRows
+      .filter((o) => o.payment_status === 'Paid')
+      .reduce((acc, o) => acc + Number(o.total_cents || 0), 0);
 
     res.json({
       stats: {
-        totalProducts: Number(productStats.total || 0),
-        inStockProducts: Number(productStats.in_stock_count || 0),
-        outOfStockProducts:
-          Number(productStats.total || 0) - Number(productStats.in_stock_count || 0),
-        totalCategories: Number(categoryStats.total || 0),
-        totalSellers: Number(sellerStats.total || 0),
-        activeSellers: Number(sellerStats.active_count || 0),
-        totalOrders: Number(orderStats.total || 0),
-        paidRevenue: Number((Number(orderStats.paid_revenue_cents || 0) / 100).toFixed(2)),
-        pendingPayments: Number(pendingPayments.total || 0),
-        totalInquiries: Number(inquiryStats.total || 0),
+        totalProducts: prodRows.length,
+        inStockProducts,
+        outOfStockProducts: prodRows.length - inStockProducts,
+        totalCategories: catsRes.count || 0,
+        totalSellers: sellerRows.length,
+        activeSellers,
+        totalOrders: orderRows.length,
+        pendingPayments,
+        paidRevenue: Number((paidRevenueCents / 100).toFixed(2)),
+        totalInquiries: inquiriesRes.count || 0,
       },
       integrations: {
-        cybersourceConfigured: getMissingCyberSourceVars(cfg).length === 0,
-        cybersourceMissingVars: getMissingCyberSourceVars(cfg),
-        smtpConfigured: getMissingSmtpVars(cfg).length === 0,
-        smtpMissingVars: getMissingSmtpVars(cfg),
-        crypto: getCryptoVerifierStatus(cfg),
+        supabaseConnected: true,
+        storageBucket: cfg.supabase.storageBucket,
+        cybersourceStatus: 'Frontend Placeholder (Unavailable)',
+        activeCryptoMethods: cryptoRows.filter((c) => c.active).length,
       },
-      auditLogs: recentAudit,
+      auditLogs: auditRes.data || [],
     });
   });
 
   /* ------------------------------------------------------------------------
      CATEGORIES CRUD
      ------------------------------------------------------------------------ */
-  router.get('/categories', (_req: AdminRequest, res: Response) => {
-    const rows = db
-      .prepare(
-        `
-        SELECT c.*, COUNT(p.id) AS product_count
-        FROM categories c
-        LEFT JOIN products p ON p.category_id = c.id
-        GROUP BY c.id
-        ORDER BY c.name ASC
-      `
-      )
-      .all();
-    res.json({ categories: rows });
+  router.get('/categories', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const [{ data: cats, error }, { data: prods }] = await Promise.all([
+      sb.from('categories').select('*').order('name', { ascending: true }),
+      sb.from('products').select('category_id'),
+    ]);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    const counts = new Map<number, number>();
+    for (const p of (prods || []) as Array<{ category_id: number }>) {
+      counts.set(Number(p.category_id), (counts.get(Number(p.category_id)) || 0) + 1);
+    }
+    res.json({
+      categories: ((cats || []) as Record<string, unknown>[]).map((c) => ({
+        ...c,
+        product_count: counts.get(Number(c.id)) || 0,
+      })),
+    });
   });
 
-  router.post('/categories', (req: AdminRequest, res: Response) => {
+  router.post('/categories', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
     const body = (req.body || {}) as Record<string, unknown>;
     const name = String(body.name || '').trim();
     const slug = slugify(String(body.slug || name));
     const description = String(body.description || '').trim().slice(0, 500);
 
     if (name.length < 2 || name.length > 80 || !slug) {
-      res.status(400).json({ error: 'Category name (2–80 characters) and valid slug are required.' });
+      res.status(400).json({ error: 'Category name (2–80 characters) is required.' });
       return;
     }
 
-    try {
-      const result = db
-        .prepare('INSERT INTO categories (slug, name, description) VALUES (?, ?, ?)')
-        .run(slug, name, description);
+    const { data, error } = await sb
+      .from('categories')
+      .insert({ slug, name, description })
+      .select('*')
+      .single();
 
-      writeAuditLog(db, {
-        adminUserId: req.admin!.userId,
-        adminEmail: req.admin!.email,
-        action: 'CATEGORY_CREATED',
-        targetType: 'category',
-        targetId: String(result.lastInsertRowid),
-        details: { name, slug },
-        ipAddress: getClientIp(req),
-      });
-
-      const created = db
-        .prepare('SELECT * FROM categories WHERE id = ?')
-        .get(Number(result.lastInsertRowid));
-      res.status(201).json({ category: created });
-    } catch {
+    if (error) {
       res.status(409).json({ error: 'A category with that name or slug already exists.' });
+      return;
     }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'CATEGORY_CREATED',
+      targetType: 'category',
+      targetId: String(data.id),
+      details: { name, slug },
+      ipAddress: getClientIp(req),
+    });
+
+    res.status(201).json({ category: data });
   });
 
-  router.put('/categories/:id', (req: AdminRequest, res: Response) => {
+  router.put('/categories/:id', async (req: AdminRequest, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
     if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'Invalid category ID.' });
@@ -613,64 +462,66 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
     const description = String(body.description || '').trim().slice(0, 500);
 
     if (name.length < 2 || name.length > 80) {
-      res.status(400).json({ error: 'Category name must be between 2 and 80 characters.' });
+      res.status(400).json({ error: 'Category name (2–80 characters) is required.' });
       return;
     }
 
-    try {
-      const result = db
-        .prepare(
-          "UPDATE categories SET name = ?, description = ?, updated_at = datetime('now') WHERE id = ?"
-        )
-        .run(name, description, id);
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('categories')
+      .update({ name, description })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
 
-      if (result.changes === 0) {
-        res.status(404).json({ error: 'Category not found.' });
-        return;
-      }
-
-      writeAuditLog(db, {
-        adminUserId: req.admin!.userId,
-        adminEmail: req.admin!.email,
-        action: 'CATEGORY_UPDATED',
-        targetType: 'category',
-        targetId: String(id),
-        details: { name },
-        ipAddress: getClientIp(req),
-      });
-
-      const updated = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
-      res.json({ category: updated });
-    } catch {
-      res.status(409).json({ error: 'Another category already uses that name.' });
+    if (error) {
+      res.status(409).json({ error: 'Category name conflicts with an existing category.' });
+      return;
     }
+    if (!data) {
+      res.status(404).json({ error: 'Category not found.' });
+      return;
+    }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'CATEGORY_UPDATED',
+      targetType: 'category',
+      targetId: String(id),
+      details: { name },
+      ipAddress: getClientIp(req),
+    });
+
+    res.json({ category: data });
   });
 
-  router.delete('/categories/:id', (req: AdminRequest, res: Response) => {
+  router.delete('/categories/:id', async (req: AdminRequest, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
     if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'Invalid category ID.' });
       return;
     }
+    const sb = req.supabase!;
+    const { count } = await sb
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', id);
 
-    const assigned = db
-      .prepare('SELECT COUNT(*) AS count FROM products WHERE category_id = ?')
-      .get(id) as { count: number };
-
-    if (assigned.count > 0) {
+    if ((count || 0) > 0) {
       res.status(409).json({
-        error: `Cannot delete this category because ${assigned.count} product(s) are assigned to it.`,
+        error: `Cannot delete category while ${count} product(s) are assigned to it. Reassign or delete those products first.`,
       });
       return;
     }
 
-    const result = db.prepare('DELETE FROM categories WHERE id = ?').run(id);
-    if (result.changes === 0) {
-      res.status(404).json({ error: 'Category not found.' });
+    const { error } = await sb.from('categories').delete().eq('id', id);
+    if (error) {
+      res.status(400).json({ error: error.message });
       return;
     }
 
-    writeAuditLog(db, {
+    await writeAuditLog(sb, {
       adminUserId: req.admin!.userId,
       adminEmail: req.admin!.email,
       action: 'CATEGORY_DELETED',
@@ -685,64 +536,89 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
   /* ------------------------------------------------------------------------
      SELLERS CRUD
      ------------------------------------------------------------------------ */
-  router.get('/sellers', (_req: AdminRequest, res: Response) => {
-    const rows = db
-      .prepare(
-        `
-        SELECT s.*, COUNT(p.id) AS product_count
-        FROM sellers s
-        LEFT JOIN products p ON p.seller_id = s.id
-        GROUP BY s.id
-        ORDER BY s.username ASC
-      `
-      )
-      .all();
-    res.json({ sellers: rows });
+  router.get('/sellers', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const [{ data: sellers, error }, { data: prods }] = await Promise.all([
+      sb.from('sellers').select('*').order('username', { ascending: true }),
+      sb.from('products').select('seller_id'),
+    ]);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    const counts = new Map<number, number>();
+    for (const p of (prods || []) as Array<{ seller_id: number }>) {
+      counts.set(Number(p.seller_id), (counts.get(Number(p.seller_id)) || 0) + 1);
+    }
+    res.json({
+      sellers: ((sellers || []) as Record<string, unknown>[]).map((s) => ({
+        ...s,
+        product_count: counts.get(Number(s.id)) || 0,
+      })),
+    });
   });
 
-  router.post('/sellers', (req: AdminRequest, res: Response) => {
+  router.post('/sellers', async (req: AdminRequest, res: Response) => {
     const body = (req.body || {}) as Record<string, unknown>;
     const username = String(body.username || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
     const location = String(body.location || '').trim().slice(0, 120);
     const specialty = String(body.specialty || '').trim().slice(0, 120);
     const responseTime = String(body.responseTime || 'Within 24 hours').trim().slice(0, 80);
+    const phoneRaw = String(body.phone || '').trim().slice(0, 40);
+    const phone = phoneRaw && isValidPhone(phoneRaw) ? phoneRaw : '';
+    const whatsapp = sanitizeWhatsAppContact(body.whatsapp).value;
+    const telegram = sanitizeTelegramContact(body.telegram).value;
+    const otherContactUrl = sanitizeExternalUrl(body.otherContactUrl);
 
-    if (username.length < 2 || username.length > 60 || !isValidEmail(email)) {
-      res.status(400).json({ error: 'Seller username (2–60 chars) and valid email address are required.' });
+    if (!/^[a-zA-Z0-9_.-]{3,50}$/.test(username)) {
+      res.status(400).json({
+        error: 'Seller username must be 3–50 alphanumeric, underscore, dot, or hyphen characters.',
+      });
+      return;
+    }
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: 'Valid seller email address is required.' });
       return;
     }
 
-    try {
-      const result = db
-        .prepare(
-          `
-          INSERT INTO sellers (username, email, location, specialty, response_time, active)
-          VALUES (?, ?, ?, ?, ?, 1)
-        `
-        )
-        .run(username, email, location, specialty, responseTime);
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('sellers')
+      .insert({
+        username,
+        email,
+        location,
+        specialty,
+        response_time: responseTime,
+        phone,
+        whatsapp,
+        telegram,
+        other_contact_url: otherContactUrl,
+        active: true,
+      })
+      .select('*')
+      .single();
 
-      writeAuditLog(db, {
-        adminUserId: req.admin!.userId,
-        adminEmail: req.admin!.email,
-        action: 'SELLER_CREATED',
-        targetType: 'seller',
-        targetId: String(result.lastInsertRowid),
-        details: { username, email },
-        ipAddress: getClientIp(req),
-      });
-
-      const created = db
-        .prepare('SELECT * FROM sellers WHERE id = ?')
-        .get(Number(result.lastInsertRowid));
-      res.status(201).json({ seller: created });
-    } catch {
+    if (error) {
       res.status(409).json({ error: 'A seller with that username or email already exists.' });
+      return;
     }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'SELLER_CREATED',
+      targetType: 'seller',
+      targetId: String(data.id),
+      details: { username, email },
+      ipAddress: getClientIp(req),
+    });
+
+    res.status(201).json({ seller: data });
   });
 
-  router.put('/sellers/:id', (req: AdminRequest, res: Response) => {
+  router.put('/sellers/:id', async (req: AdminRequest, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
     if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'Invalid seller ID.' });
@@ -753,69 +629,221 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
     const location = String(body.location || '').trim().slice(0, 120);
     const specialty = String(body.specialty || '').trim().slice(0, 120);
     const responseTime = String(body.responseTime || 'Within 24 hours').trim().slice(0, 80);
-    const active = body.active === false || body.active === 0 ? 0 : 1;
+    const phoneRaw = String(body.phone || '').trim().slice(0, 40);
+    const phone = phoneRaw && isValidPhone(phoneRaw) ? phoneRaw : '';
+    const whatsapp = sanitizeWhatsAppContact(body.whatsapp).value;
+    const telegram = sanitizeTelegramContact(body.telegram).value;
+    const otherContactUrl = sanitizeExternalUrl(body.otherContactUrl);
+    const active = body.active !== false && body.active !== 0;
 
     if (!isValidEmail(email)) {
       res.status(400).json({ error: 'Valid seller email address is required.' });
       return;
     }
 
-    try {
-      const result = db
-        .prepare(
-          `
-          UPDATE sellers
-          SET email = ?, location = ?, specialty = ?, response_time = ?, active = ?, updated_at = datetime('now')
-          WHERE id = ?
-        `
-        )
-        .run(email, location, specialty, responseTime, active, id);
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('sellers')
+      .update({
+        email,
+        location,
+        specialty,
+        response_time: responseTime,
+        phone,
+        whatsapp,
+        telegram,
+        other_contact_url: otherContactUrl,
+        active,
+      })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
 
-      if (result.changes === 0) {
-        res.status(404).json({ error: 'Seller not found.' });
-        return;
-      }
-
-      writeAuditLog(db, {
-        adminUserId: req.admin!.userId,
-        adminEmail: req.admin!.email,
-        action: 'SELLER_UPDATED',
-        targetType: 'seller',
-        targetId: String(id),
-        details: { email, active: active === 1 },
-        ipAddress: getClientIp(req),
-      });
-
-      const updated = db.prepare('SELECT * FROM sellers WHERE id = ?').get(id);
-      res.json({ seller: updated });
-    } catch {
+    if (error) {
       res.status(409).json({ error: 'Another seller already uses that email address.' });
+      return;
     }
+    if (!data) {
+      res.status(404).json({ error: 'Seller not found.' });
+      return;
+    }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'SELLER_UPDATED',
+      targetType: 'seller',
+      targetId: String(id),
+      details: { email, active },
+      ipAddress: getClientIp(req),
+    });
+
+    res.json({ seller: data });
   });
 
   /* ------------------------------------------------------------------------
-     PRODUCTS CRUD
+     SUPABASE STORAGE IMAGE UPLOADS (Product Photos & Manual Crypto QR Codes)
      ------------------------------------------------------------------------ */
-  router.get('/products', (_req: AdminRequest, res: Response) => {
-    const rows = db
-      .prepare(
-        `
-        SELECT
-          p.*,
-          c.name AS category_name,
-          c.slug AS category_slug,
-          s.username AS seller_username
-        FROM products p
-        JOIN categories c ON c.id = p.category_id
-        JOIN sellers s ON s.id = p.seller_id
-        ORDER BY p.id DESC
-      `
-      )
-      .all();
+  const imageUploadMiddleware = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: MAX_UPLOAD_IMAGE_BYTES,
+      files: MAX_UPLOAD_FILES_PER_REQUEST,
+    },
+    fileFilter: (_req, file, cb) => {
+      const allowedMimes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+      if (!allowedMimes.has(String(file.mimetype || '').toLowerCase())) {
+        cb(new Error('Only JPG, PNG, and WebP image files are allowed.'));
+        return;
+      }
+      cb(null, true);
+    },
+  });
+
+  router.post('/uploads/images', (req: AdminRequest, res: Response) => {
+    imageUploadMiddleware.array('images', MAX_UPLOAD_FILES_PER_REQUEST)(req, res, async (err: unknown) => {
+      if (err) {
+        const msg =
+          err instanceof multer.MulterError
+            ? err.code === 'LIMIT_FILE_SIZE'
+              ? 'Each image must be 5 MB or smaller.'
+              : err.code === 'LIMIT_FILE_COUNT'
+                ? `You can upload up to ${MAX_UPLOAD_FILES_PER_REQUEST} images at once.`
+                : err.message
+            : err instanceof Error
+              ? err.message
+              : 'Image upload failed.';
+        res.status(400).json({ error: msg });
+        return;
+      }
+
+      const files = (req.files || []) as Express.Multer.File[];
+      if (!Array.isArray(files) || files.length === 0) {
+        res.status(400).json({ error: 'Please select at least one JPG, PNG, or WebP image file to upload.' });
+        return;
+      }
+
+      const folderParam = String(req.query.folder || 'products').trim();
+      const folder = folderParam === 'crypto-qr' ? 'crypto-qr' : 'products';
+      const sb = req.supabase!;
+
+      const uploadedPaths: string[] = [];
+      const savedImages: Array<{
+        src: string;
+        objectPath: string;
+        mimeType: string;
+        size: number;
+        caption: string;
+      }> = [];
+
+      try {
+        for (const file of files) {
+          const detected = detectImageMagicBytes(file.buffer);
+          if (!detected) {
+            throw new Error(
+              `File "${file.originalname || 'image'}" is not a valid JPG, PNG, or WebP image.`
+            );
+          }
+
+          const filename = `${folder === 'crypto-qr' ? 'qr' : 'prod'}-${Date.now()}-${generateSecureToken(8)}.${detected.ext}`;
+          const objectPath = `${folder}/${filename}`;
+
+          const { error: uploadErr } = await sb.storage
+            .from(cfg.supabase.storageBucket)
+            .upload(objectPath, file.buffer, {
+              contentType: detected.mime,
+              upsert: false,
+            });
+
+          if (uploadErr) {
+            throw new Error(`Supabase Storage upload failed: ${uploadErr.message}`);
+          }
+
+          uploadedPaths.push(objectPath);
+          const publicUrl = getPublicStorageUrl(cfg, objectPath);
+          const baseCaption = path
+            .basename(file.originalname || '', path.extname(file.originalname || ''))
+            .replace(/[_-]+/g, ' ')
+            .trim()
+            .slice(0, 120);
+
+          savedImages.push({
+            src: publicUrl,
+            objectPath,
+            mimeType: detected.mime,
+            size: file.size,
+            caption: baseCaption || 'Product image',
+          });
+        }
+      } catch (uploadFailure: unknown) {
+        if (uploadedPaths.length > 0) {
+          await sb.storage.from(cfg.supabase.storageBucket).remove(uploadedPaths).catch(() => {});
+        }
+        res.status(400).json({
+          error:
+            uploadFailure instanceof Error
+              ? uploadFailure.message
+              : 'Uploaded file failed validation or storage upload.',
+        });
+        return;
+      }
+
+      await writeAuditLog(sb, {
+        adminUserId: req.admin!.userId,
+        adminEmail: req.admin!.email,
+        action: 'SUPABASE_STORAGE_UPLOAD',
+        targetType: 'storage',
+        targetId: String(savedImages.length),
+        details: { bucket: cfg.supabase.storageBucket, paths: uploadedPaths },
+        ipAddress: getClientIp(req),
+      });
+
+      res.status(201).json({ images: savedImages });
+    });
+  });
+
+  router.delete('/uploads/images', async (req: AdminRequest, res: Response) => {
+    const rawUrl = String((req.body as Record<string, unknown>)?.url || req.query.url || '').trim();
+    const objectPath = extractStorageObjectPath(cfg, rawUrl);
+    if (!objectPath) {
+      res.status(400).json({ error: 'Invalid Supabase Storage image URL.' });
+      return;
+    }
+
+    const sb = req.supabase!;
+    await cleanupOrphanedStorageUrls(sb, cfg, [rawUrl]);
+    res.json({ ok: true });
+  });
+
+  /* ------------------------------------------------------------------------
+     PRODUCTS CRUD (Supabase DB + Supabase Storage Orphan Cleanup)
+     ------------------------------------------------------------------------ */
+  router.get('/products', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('products')
+      .select('*, categories(name, slug), sellers(username)')
+      .order('id', { ascending: false });
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    const rows = ((data || []) as Record<string, unknown>[]).map((p) => {
+      const cat = (p.categories || {}) as Record<string, unknown>;
+      const sel = (p.sellers || {}) as Record<string, unknown>;
+      return {
+        ...p,
+        category_name: String(cat.name || ''),
+        category_slug: String(cat.slug || ''),
+        seller_username: String(sel.username || ''),
+      };
+    });
     res.json({ products: rows });
   });
 
-  router.post('/products', (req: AdminRequest, res: Response) => {
+  router.post('/products', async (req: AdminRequest, res: Response) => {
     const body = (req.body || {}) as Record<string, unknown>;
     const name = String(body.name || '').trim();
     const description = String(body.description || '').trim();
@@ -824,10 +852,10 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
     const sellerId = parseInt(String(body.sellerId || ''), 10);
     const condition = String(body.condition || 'Used - Tested').trim().slice(0, 80);
     const stockQuantity = Math.max(0, parseInt(String(body.stockQuantity ?? '1'), 10) || 0);
-    const inStock = body.inStock !== false && stockQuantity > 0 ? 1 : 0;
-    const isDigital = body.isDigital === true ? 1 : 0;
+    const inStock = body.inStock !== false && stockQuantity > 0;
+    const isDigital = body.isDigital === true;
     const availability =
-      String(body.availability || '').trim() ||
+      String(body.availability || '').trim().slice(0, 80) ||
       (inStock ? `In Stock (${stockQuantity} available)` : 'Out of Stock');
     const shippingCostCents = isDigital ? 0 : parseCents(body.shippingCost ?? 0) ?? 0;
     const shippingMethod = String(
@@ -838,14 +866,9 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
     const shippingHandling = String(body.shippingHandling || 'Ships within 2 business days')
       .trim()
       .slice(0, 120);
-    const returnPolicy = String(body.returnPolicy || '14-day return policy')
-      .trim()
-      .slice(0, 160);
-    const imageUrl = sanitizeImageUrl(
-      String(body.imageUrl || ''),
-      'assets/images/retro-keyboard.jpg'
-    );
-    const featured = body.featured === true ? 1 : 0;
+    const shippingFrom = String(body.shippingFrom || '').trim().slice(0, 120);
+    const returnPolicy = String(body.returnPolicy || '14-day return policy').trim().slice(0, 160);
+    const featured = body.featured === true;
 
     if (name.length < 3 || name.length > 160) {
       res.status(400).json({ error: 'Product name must be between 3 and 160 characters.' });
@@ -864,62 +887,75 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
       return;
     }
 
-    try {
-      const result = db
-        .prepare(
-          `
-          INSERT INTO products (
-            name, description, price_cents, category_id, seller_id,
-            condition, availability, stock_quantity, in_stock, is_digital,
-            shipping_cost_cents, shipping_method, shipping_handling, return_policy,
-            image_url, gallery_json, specs_json, featured
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
-        )
-        .run(
-          name,
-          description,
-          priceCents,
-          categoryId,
-          sellerId,
-          condition,
-          availability,
-          stockQuantity,
-          inStock,
-          isDigital,
-          shippingCostCents,
-          shippingMethod,
-          shippingHandling,
-          returnPolicy,
-          imageUrl,
-          JSON.stringify([{ src: imageUrl, caption: name }]),
-          JSON.stringify({ Condition: condition, Fulfillment: shippingMethod }),
-          featured
-        );
+    const gallery = sanitizeGalleryInput(body.images, String(body.imageUrl || ''), name);
+    const primaryImageUrl = gallery[0].src;
+    const specs = sanitizeKeyValueMap(body.specs, 30);
+    const customAttributes = sanitizeKeyValueMap(body.customAttributes, 30);
+    const sellerContact = sanitizeSellerContact(body.sellerContact);
 
-      writeAuditLog(db, {
-        adminUserId: req.admin!.userId,
-        adminEmail: req.admin!.email,
-        action: 'PRODUCT_CREATED',
-        targetType: 'product',
-        targetId: String(result.lastInsertRowid),
-        details: { name, priceCents, stockQuantity },
-        ipAddress: getClientIp(req),
-      });
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('products')
+      .insert({
+        name,
+        description,
+        price_cents: priceCents,
+        category_id: categoryId,
+        seller_id: sellerId,
+        condition,
+        availability,
+        stock_quantity: stockQuantity,
+        in_stock: inStock,
+        is_digital: isDigital,
+        shipping_cost_cents: shippingCostCents,
+        shipping_method: shippingMethod,
+        shipping_handling: shippingHandling,
+        shipping_from: shippingFrom,
+        return_policy: returnPolicy,
+        image_url: primaryImageUrl,
+        gallery_json: gallery,
+        specs_json: specs,
+        custom_attributes_json: customAttributes,
+        seller_contact_json: sellerContact,
+        featured,
+      })
+      .select('*')
+      .single();
 
-      const created = db
-        .prepare('SELECT * FROM products WHERE id = ?')
-        .get(Number(result.lastInsertRowid));
-      res.status(201).json({ product: created });
-    } catch {
+    if (error) {
       res.status(400).json({ error: 'Could not create product. Ensure category and seller exist.' });
+      return;
     }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'PRODUCT_CREATED',
+      targetType: 'product',
+      targetId: String(data.id),
+      details: { name, priceCents, stockQuantity, imageCount: gallery.length },
+      ipAddress: getClientIp(req),
+    });
+
+    res.status(201).json({ product: data });
   });
 
-  router.put('/products/:id', (req: AdminRequest, res: Response) => {
+  router.put('/products/:id', async (req: AdminRequest, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
     if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'Invalid product ID.' });
+      return;
+    }
+
+    const sb = req.supabase!;
+    const { data: existing } = await sb
+      .from('products')
+      .select('image_url, gallery_json')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existing) {
+      res.status(404).json({ error: 'Product not found.' });
       return;
     }
 
@@ -931,86 +967,116 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
     const sellerId = parseInt(String(body.sellerId || ''), 10);
     const condition = String(body.condition || 'Used - Tested').trim().slice(0, 80);
     const stockQuantity = Math.max(0, parseInt(String(body.stockQuantity ?? '1'), 10) || 0);
-    const inStock = body.inStock !== false && stockQuantity > 0 ? 1 : 0;
-    const isDigital = body.isDigital === true ? 1 : 0;
+    const inStock = body.inStock !== false && stockQuantity > 0;
+    const isDigital = body.isDigital === true;
     const availability =
-      String(body.availability || '').trim() ||
+      String(body.availability || '').trim().slice(0, 80) ||
       (inStock ? `In Stock (${stockQuantity} available)` : 'Out of Stock');
     const shippingCostCents = isDigital ? 0 : parseCents(body.shippingCost ?? 0) ?? 0;
-    const imageUrl = sanitizeImageUrl(
-      String(body.imageUrl || ''),
-      'assets/images/retro-keyboard.jpg'
-    );
-    const featured = body.featured === true ? 1 : 0;
+    const shippingMethod = String(
+      body.shippingMethod || (isDigital ? 'Instant Digital Delivery' : 'Standard Ground Shipping')
+    )
+      .trim()
+      .slice(0, 120);
+    const shippingHandling = String(body.shippingHandling || 'Ships within 2 business days')
+      .trim()
+      .slice(0, 120);
+    const shippingFrom = String(body.shippingFrom || '').trim().slice(0, 120);
+    const returnPolicy = String(body.returnPolicy || '14-day return policy').trim().slice(0, 160);
+    const featured = body.featured === true;
 
     if (name.length < 3 || description.length < 10 || priceCents === null) {
       res.status(400).json({ error: 'Valid name, description, and price are required.' });
       return;
     }
 
-    const result = db
-      .prepare(
-        `
-        UPDATE products
-        SET
-          name = ?, description = ?, price_cents = ?, category_id = ?, seller_id = ?,
-          condition = ?, availability = ?, stock_quantity = ?, in_stock = ?, is_digital = ?,
-          shipping_cost_cents = ?, image_url = ?, gallery_json = ?, featured = ?,
-          updated_at = datetime('now')
-        WHERE id = ?
-      `
-      )
-      .run(
+    const gallery = sanitizeGalleryInput(body.images, String(body.imageUrl || ''), name);
+    const primaryImageUrl = gallery[0].src;
+    const specs = sanitizeKeyValueMap(body.specs, 30);
+    const customAttributes = sanitizeKeyValueMap(body.customAttributes, 30);
+    const sellerContact = sanitizeSellerContact(body.sellerContact);
+    const previousUrls = collectProductImageUrls(existing.image_url, existing.gallery_json);
+
+    const { data: updated, error } = await sb
+      .from('products')
+      .update({
         name,
         description,
-        priceCents,
-        categoryId,
-        sellerId,
+        price_cents: priceCents,
+        category_id: categoryId,
+        seller_id: sellerId,
         condition,
         availability,
-        stockQuantity,
-        inStock,
-        isDigital,
-        shippingCostCents,
-        imageUrl,
-        JSON.stringify([{ src: imageUrl, caption: name }]),
+        stock_quantity: stockQuantity,
+        in_stock: inStock,
+        is_digital: isDigital,
+        shipping_cost_cents: shippingCostCents,
+        shipping_method: shippingMethod,
+        shipping_handling: shippingHandling,
+        shipping_from: shippingFrom,
+        return_policy: returnPolicy,
+        image_url: primaryImageUrl,
+        gallery_json: gallery,
+        specs_json: specs,
+        custom_attributes_json: customAttributes,
+        seller_contact_json: sellerContact,
         featured,
-        id
-      );
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
 
-    if (result.changes === 0) {
-      res.status(404).json({ error: 'Product not found.' });
+    if (error) {
+      res.status(400).json({ error: 'Could not update product.' });
       return;
     }
 
-    writeAuditLog(db, {
+    const newUrlSet = new Set(gallery.map((g) => g.src));
+    const removedUrls = previousUrls.filter((u) => !newUrlSet.has(u));
+    await cleanupOrphanedStorageUrls(sb, cfg, removedUrls);
+
+    await writeAuditLog(sb, {
       adminUserId: req.admin!.userId,
       adminEmail: req.admin!.email,
       action: 'PRODUCT_UPDATED',
       targetType: 'product',
       targetId: String(id),
-      details: { name, priceCents, stockQuantity, inStock: inStock === 1 },
+      details: { name, priceCents, stockQuantity, imageCount: gallery.length },
       ipAddress: getClientIp(req),
     });
 
-    const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
     res.json({ product: updated });
   });
 
-  router.delete('/products/:id', (req: AdminRequest, res: Response) => {
+  router.delete('/products/:id', async (req: AdminRequest, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
     if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'Invalid product ID.' });
       return;
     }
 
-    const result = db.prepare('DELETE FROM products WHERE id = ?').run(id);
-    if (result.changes === 0) {
+    const sb = req.supabase!;
+    const { data: existing } = await sb
+      .from('products')
+      .select('image_url, gallery_json')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existing) {
       res.status(404).json({ error: 'Product not found.' });
       return;
     }
 
-    writeAuditLog(db, {
+    const oldUrls = collectProductImageUrls(existing.image_url, existing.gallery_json);
+    const { error } = await sb.from('products').delete().eq('id', id);
+    if (error) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
+    await cleanupOrphanedStorageUrls(sb, cfg, oldUrls);
+
+    await writeAuditLog(sb, {
       adminUserId: req.admin!.userId,
       adminEmail: req.admin!.email,
       action: 'PRODUCT_DELETED',
@@ -1023,294 +1089,479 @@ export function createAdminApiRouter(db: DbConnection, cfg: AppConfig) {
   });
 
   /* ------------------------------------------------------------------------
+     MANUAL CRYPTOCURRENCY PAYMENT METHODS CRUD
+     (Name, Symbol, Network, Wallet Address, QR Code URL, Payment Instructions)
+     ------------------------------------------------------------------------ */
+  router.get('/crypto-methods', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('crypto_payment_methods')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true });
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json({ cryptoMethods: data || [] });
+  });
+
+  router.post('/crypto-methods', async (req: AdminRequest, res: Response) => {
+    const body = (req.body || {}) as Record<string, unknown>;
+    const name = String(body.name || '').trim().slice(0, 80);
+    const symbol = String(body.symbol || '').trim().toUpperCase().slice(0, 20);
+    const network = String(body.network || '').trim().slice(0, 80);
+    const walletAddress = String(body.walletAddress || '').trim().slice(0, 220);
+    const qrCodeUrl = sanitizeImageUrl(String(body.qrCodeUrl || ''), '');
+    const instructions = String(body.instructions || '').trim().slice(0, 1500);
+    const active = body.active !== false;
+    const sortOrder = parseInt(String(body.sortOrder ?? '0'), 10) || 0;
+
+    if (!name || !symbol || !network || !walletAddress) {
+      res.status(400).json({
+        error: 'Cryptocurrency name, symbol, network, and wallet address are required.',
+      });
+      return;
+    }
+
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('crypto_payment_methods')
+      .insert({
+        name,
+        symbol,
+        network,
+        wallet_address: walletAddress,
+        qr_code_url: qrCodeUrl,
+        instructions,
+        active,
+        sort_order: sortOrder,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'CRYPTO_METHOD_CREATED',
+      targetType: 'crypto_payment_method',
+      targetId: String(data.id),
+      details: { name, symbol, network },
+      ipAddress: getClientIp(req),
+    });
+
+    res.status(201).json({ cryptoMethod: data });
+  });
+
+  router.put('/crypto-methods/:id', async (req: AdminRequest, res: Response) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Invalid cryptocurrency method ID.' });
+      return;
+    }
+
+    const sb = req.supabase!;
+    const { data: existing } = await sb
+      .from('crypto_payment_methods')
+      .select('qr_code_url')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existing) {
+      res.status(404).json({ error: 'Cryptocurrency payment method not found.' });
+      return;
+    }
+
+    const body = (req.body || {}) as Record<string, unknown>;
+    const name = String(body.name || '').trim().slice(0, 80);
+    const symbol = String(body.symbol || '').trim().toUpperCase().slice(0, 20);
+    const network = String(body.network || '').trim().slice(0, 80);
+    const walletAddress = String(body.walletAddress || '').trim().slice(0, 220);
+    const qrCodeUrl = sanitizeImageUrl(String(body.qrCodeUrl || ''), '');
+    const instructions = String(body.instructions || '').trim().slice(0, 1500);
+    const active = body.active !== false;
+    const sortOrder = parseInt(String(body.sortOrder ?? '0'), 10) || 0;
+
+    if (!name || !symbol || !network || !walletAddress) {
+      res.status(400).json({
+        error: 'Cryptocurrency name, symbol, network, and wallet address are required.',
+      });
+      return;
+    }
+
+    const { data, error } = await sb
+      .from('crypto_payment_methods')
+      .update({
+        name,
+        symbol,
+        network,
+        wallet_address: walletAddress,
+        qr_code_url: qrCodeUrl,
+        instructions,
+        active,
+        sort_order: sortOrder,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
+    if (existing.qr_code_url && existing.qr_code_url !== qrCodeUrl) {
+      await cleanupOrphanedStorageUrls(sb, cfg, [String(existing.qr_code_url)]);
+    }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'CRYPTO_METHOD_UPDATED',
+      targetType: 'crypto_payment_method',
+      targetId: String(id),
+      details: { name, symbol, network, active },
+      ipAddress: getClientIp(req),
+    });
+
+    res.json({ cryptoMethod: data });
+  });
+
+  router.delete('/crypto-methods/:id', async (req: AdminRequest, res: Response) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Invalid cryptocurrency method ID.' });
+      return;
+    }
+
+    const sb = req.supabase!;
+    const { data: existing } = await sb
+      .from('crypto_payment_methods')
+      .select('qr_code_url')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existing) {
+      res.status(404).json({ error: 'Cryptocurrency payment method not found.' });
+      return;
+    }
+
+    const { error } = await sb.from('crypto_payment_methods').delete().eq('id', id);
+    if (error) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
+    if (existing.qr_code_url) {
+      await cleanupOrphanedStorageUrls(sb, cfg, [String(existing.qr_code_url)]);
+    }
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'CRYPTO_METHOD_DELETED',
+      targetType: 'crypto_payment_method',
+      targetId: String(id),
+      ipAddress: getClientIp(req),
+    });
+
+    res.json({ ok: true });
+  });
+
+  /* ------------------------------------------------------------------------
      ORDERS MANAGEMENT
      ------------------------------------------------------------------------ */
-  router.get('/orders', (_req: AdminRequest, res: Response) => {
-    const orders = db
-      .prepare('SELECT * FROM orders ORDER BY id DESC')
-      .all() as Array<Record<string, unknown>>;
+  router.get('/orders', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('orders')
+      .select('*, order_items(*), payments(*)')
+      .order('id', { ascending: false });
 
-    const itemStmt = db.prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY id ASC');
-    const enriched = orders.map((ord) => ({
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    const enriched = ((data || []) as Record<string, unknown>[]).map((ord) => ({
       ...ord,
-      items: itemStmt.all(Number(ord.id)),
+      items: Array.isArray(ord.order_items) ? ord.order_items : [],
+      payments: Array.isArray(ord.payments) ? ord.payments : [],
     }));
-
     res.json({ orders: enriched });
   });
 
-  router.patch('/orders/:id', (req: AdminRequest, res: Response) => {
+  router.patch('/orders/:id', async (req: AdminRequest, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
     if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'Invalid order ID.' });
       return;
     }
 
-    const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as
-      | Record<string, unknown>
-      | undefined;
-    if (!existing) {
+    const body = (req.body || {}) as Record<string, unknown>;
+    const orderStatus = String(body.orderStatus || '').trim();
+    const internalNotes = String(body.internalNotes ?? '').trim().slice(0, 1500);
+    const paymentStatus = body.paymentStatus ? String(body.paymentStatus).trim() : '';
+
+    if (!ALLOWED_ORDER_STATUSES.includes(orderStatus)) {
+      res.status(400).json({ error: `Order status must be one of: ${ALLOWED_ORDER_STATUSES.join(', ')}.` });
+      return;
+    }
+    if (paymentStatus && !ALLOWED_PAYMENT_STATUSES.includes(paymentStatus)) {
+      res.status(400).json({
+        error: `Payment status must be one of: ${ALLOWED_PAYMENT_STATUSES.join(', ')}.`,
+      });
+      return;
+    }
+
+    const sb = req.supabase!;
+    const patch: Record<string, unknown> = {
+      order_status: orderStatus,
+      internal_notes: internalNotes,
+    };
+    if (paymentStatus) {
+      patch.payment_status = paymentStatus;
+    }
+
+    const { data, error } = await sb
+      .from('orders')
+      .update(patch)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    if (!data) {
       res.status(404).json({ error: 'Order not found.' });
       return;
     }
 
-    const body = (req.body || {}) as Record<string, unknown>;
-    const nextOrderStatus = String(body.orderStatus || existing.order_status).trim();
-    const nextInternalNotes =
-      typeof body.internalNotes === 'string'
-        ? body.internalNotes.trim().slice(0, 1000)
-        : String(existing.internal_notes || '');
-
-    if (!ALLOWED_ORDER_STATUSES.includes(nextOrderStatus)) {
-      res.status(400).json({ error: 'Invalid order status.' });
-      return;
-    }
-
-    db.prepare(
-      `
-      UPDATE orders
-      SET order_status = ?, internal_notes = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `
-    ).run(nextOrderStatus, nextInternalNotes, id);
-
-    writeAuditLog(db, {
+    await writeAuditLog(sb, {
       adminUserId: req.admin!.userId,
       adminEmail: req.admin!.email,
-      action: 'ORDER_UPDATED',
+      action: 'ORDER_STATUS_UPDATED',
       targetType: 'order',
-      targetId: String(existing.order_number),
-      details: {
-        previousStatus: existing.order_status,
-        orderStatus: nextOrderStatus,
-      },
+      targetId: String(data.order_number),
+      details: { orderStatus, paymentStatus: paymentStatus || data.payment_status },
       ipAddress: getClientIp(req),
     });
 
-    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-    res.json({ order: updated });
+    res.json({ order: data });
   });
 
   /* ------------------------------------------------------------------------
-     PAYMENTS MANAGEMENT
+     PAYMENTS REVIEW & MANUAL VERIFICATION (Crypto & Manual Seller Payments)
      ------------------------------------------------------------------------ */
-  router.get('/payments', (_req: AdminRequest, res: Response) => {
-    const payments = db
-      .prepare(
-        `
-        SELECT
-          p.*,
-          o.order_number,
-          o.customer_name,
-          o.customer_email,
-          o.order_status
-        FROM payments p
-        JOIN orders o ON o.id = p.order_id
-        ORDER BY p.id DESC
-      `
-      )
-      .all();
-    res.json({ payments });
+  router.get('/payments', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('payments')
+      .select('*, orders(order_number, customer_name, customer_email)')
+      .order('id', { ascending: false });
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    const rows = ((data || []) as Record<string, unknown>[]).map((p) => {
+      const ord = (p.orders || {}) as Record<string, unknown>;
+      return {
+        ...p,
+        order_number: String(ord.order_number || ''),
+        customer_name: String(ord.customer_name || ''),
+        customer_email: String(ord.customer_email || ''),
+      };
+    });
+    res.json({ payments: rows });
   });
 
-  router.patch('/payments/:id', (req: AdminRequest, res: Response) => {
+  router.patch('/payments/:id', async (req: AdminRequest, res: Response) => {
     const id = parseInt(String(req.params.id), 10);
     if (!Number.isInteger(id) || id <= 0) {
       res.status(400).json({ error: 'Invalid payment ID.' });
       return;
     }
 
-    const existing = db
-      .prepare(
-        `
-        SELECT p.*, o.order_number
-        FROM payments p
-        JOIN orders o ON o.id = p.order_id
-        WHERE p.id = ?
-        LIMIT 1
-      `
-      )
-      .get(id) as Record<string, unknown> | undefined;
+    const sb = req.supabase!;
+    const { data: payment } = await sb
+      .from('payments')
+      .select('id, payment_ref, order_id, method, status')
+      .eq('id', id)
+      .maybeSingle();
 
-    if (!existing) {
+    if (!payment) {
       res.status(404).json({ error: 'Payment record not found.' });
       return;
     }
 
     const body = (req.body || {}) as Record<string, unknown>;
-    const nextStatus = String(body.status || '').trim();
+    const status = String(body.status || '').trim();
     const reviewNote = String(body.reviewNote || '').trim().slice(0, 1000);
 
-    if (!ALLOWED_PAYMENT_STATUSES.includes(nextStatus)) {
-      res.status(400).json({ error: 'Invalid payment status.' });
-      return;
-    }
-
-    // Security invariant: CyberSource & Cryptocurrency payments MUST be verified cryptographically/on-chain
-    // and cannot be manually forced to Paid by an admin click. Manual bank/money-order payments require a review reference.
-    if (nextStatus === 'Paid' && String(existing.method) !== 'manual') {
-      res.status(403).json({
-        error:
-          'Security Policy: CyberSource and Cryptocurrency payments can only be marked Paid through verified gateway webhooks or on-chain confirmation.',
+    if (!ALLOWED_PAYMENT_STATUSES.includes(status)) {
+      res.status(400).json({
+        error: `Payment status must be one of: ${ALLOWED_PAYMENT_STATUSES.join(', ')}.`,
       });
       return;
     }
 
-    if (nextStatus === 'Paid' && String(existing.method) === 'manual' && reviewNote.length < 6) {
+    if (status === 'Paid' && payment.method === 'cybersource') {
+      res.status(400).json({
+        error: 'CyberSource processing is unavailable and cannot be marked Paid.',
+      });
+      return;
+    }
+
+    if (status === 'Paid' && reviewNote.length < 5) {
       res.status(400).json({
         error:
-          'Marking a manual payment as Paid requires a verification note (e.g., bank wire reference or money order receipt number, min. 6 characters).',
+          'Marking a cryptocurrency or manual payment as Paid requires a verification note (at least 5 characters, e.g. wallet receipt or transfer reference).',
       });
       return;
     }
 
-    runInTransaction(db, () => {
-      db.prepare(
-        `
-        UPDATE payments
-        SET
-          status = ?,
-          review_note = ?,
-          verified_at = CASE WHEN ? = 'Paid' THEN datetime('now') ELSE verified_at END,
-          updated_at = datetime('now')
-        WHERE id = ?
-      `
-      ).run(nextStatus, reviewNote, nextStatus, id);
+    const { data: updated, error } = await sb
+      .from('payments')
+      .update({
+        status,
+        review_note: reviewNote,
+        verified_at: status === 'Paid' ? new Date().toISOString() : null,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
 
-      db.prepare(
-        `
-        UPDATE orders
-        SET
-          payment_status = ?,
-          order_status = CASE WHEN ? = 'Paid' AND order_status = 'Pending' THEN 'Processing' ELSE order_status END,
-          updated_at = datetime('now')
-        WHERE id = ?
-      `
-      ).run(nextStatus, nextStatus, Number(existing.order_id));
+    if (error) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
 
-      writeAuditLog(db, {
-        adminUserId: req.admin!.userId,
-        adminEmail: req.admin!.email,
-        action: 'PAYMENT_REVIEWED',
-        targetType: 'payment',
-        targetId: String(existing.payment_ref),
-        details: {
-          orderNumber: existing.order_number,
-          method: existing.method,
-          previousStatus: existing.status,
-          status: nextStatus,
-          reviewNote,
-        },
-        ipAddress: getClientIp(req),
-      });
+    await sb
+      .from('orders')
+      .update({ payment_status: status })
+      .eq('id', payment.order_id);
+
+    await writeAuditLog(sb, {
+      adminUserId: req.admin!.userId,
+      adminEmail: req.admin!.email,
+      action: 'PAYMENT_MANUALLY_VERIFIED',
+      targetType: 'payment',
+      targetId: String(payment.payment_ref),
+      details: { method: payment.method, previousStatus: payment.status, status, reviewNote },
+      ipAddress: getClientIp(req),
     });
 
-    const updated = db.prepare('SELECT * FROM payments WHERE id = ?').get(id);
     res.json({ payment: updated });
   });
 
   /* ------------------------------------------------------------------------
-     INQUIRIES & AUDIT LOGS
+     INQUIRIES, AUDIT LOGS & WEBSITE SETTINGS
      ------------------------------------------------------------------------ */
-  router.get('/inquiries', (_req: AdminRequest, res: Response) => {
-    const rows = db
-      .prepare('SELECT * FROM seller_inquiries ORDER BY id DESC LIMIT 200')
-      .all();
-    res.json({ inquiries: rows });
+  router.get('/inquiries', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('seller_inquiries')
+      .select('*')
+      .order('id', { ascending: false })
+      .limit(200);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json({ inquiries: data || [] });
   });
 
-  router.get('/audit-logs', (_req: AdminRequest, res: Response) => {
-    const rows = db
-      .prepare('SELECT * FROM audit_logs ORDER BY id DESC LIMIT 200')
-      .all();
-    res.json({ auditLogs: rows });
+  router.get('/audit-logs', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('audit_logs')
+      .select('*')
+      .order('id', { ascending: false })
+      .limit(200);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json({ auditLogs: data || [] });
   });
 
-  /* ------------------------------------------------------------------------
-     WEBSITE SETTINGS & CRYPTO WALLET CONFIG
-     ------------------------------------------------------------------------ */
-  router.get('/settings', (_req: AdminRequest, res: Response) => {
-    const row = db.prepare('SELECT * FROM website_settings WHERE id = 1').get();
-    res.json({ settings: row });
+  router.get('/settings', async (req: AdminRequest, res: Response) => {
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('website_settings')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json({ settings: data });
   });
 
-  router.put('/settings', (req: AdminRequest, res: Response) => {
+  router.put('/settings', async (req: AdminRequest, res: Response) => {
     const body = (req.body || {}) as Record<string, unknown>;
     const siteName = String(body.siteName || 'RetroMarket').trim().slice(0, 80);
-    const tagline = String(body.tagline || '').trim().slice(0, 180);
+    const tagline = String(body.tagline || '').trim().slice(0, 160);
     const logoPath = sanitizeImageUrl(String(body.logoPath || ''), 'assets/icons/logo-mark.svg');
     const defaultCurrency = String(body.defaultCurrency || 'USD').trim().toUpperCase();
-    const supportEmail = String(body.supportEmail || '').trim().toLowerCase();
+    const supportEmailRaw = String(body.supportEmail || '').trim().toLowerCase();
     const sellerContactInfo = String(body.sellerContactInfo || '').trim().slice(0, 500);
     const guestCheckoutNotice = String(body.guestCheckoutNotice || '').trim().slice(0, 500);
-    const btcWalletAddress = String(body.btcWalletAddress || '').trim().slice(0, 128);
-    const ethWalletAddress = String(body.ethWalletAddress || '').trim().slice(0, 128);
-    const usdtWalletAddress = String(body.usdtWalletAddress || '').trim().slice(0, 128);
-    const usdtNetwork = String(body.usdtNetwork || 'ERC-20').trim().slice(0, 40);
 
-    if (!siteName) {
-      res.status(400).json({ error: 'Site Name is required.' });
-      return;
-    }
     if (!['USD', 'EUR', 'GBP', 'CAD'].includes(defaultCurrency)) {
-      res.status(400).json({ error: 'Unsupported default currency.' });
+      res.status(400).json({ error: 'Currency must be USD, EUR, GBP, or CAD.' });
       return;
     }
-    if (supportEmail && !isValidEmail(supportEmail)) {
-      res.status(400).json({ error: 'Support Email must be a valid email address.' });
+    if (supportEmailRaw && !isValidEmail(supportEmailRaw)) {
+      res.status(400).json({ error: 'Support email must be a valid email address or left blank.' });
       return;
     }
 
-    db.prepare(
-      `
-      UPDATE website_settings
-      SET
-        site_name = ?,
-        tagline = ?,
-        logo_path = ?,
-        default_currency = ?,
-        support_email = ?,
-        seller_contact_info = ?,
-        guest_checkout_notice = ?,
-        btc_wallet_address = ?,
-        eth_wallet_address = ?,
-        usdt_wallet_address = ?,
-        usdt_network = ?,
-        updated_at = datetime('now')
-      WHERE id = 1
-    `
-    ).run(
-      siteName,
-      tagline,
-      logoPath,
-      defaultCurrency,
-      supportEmail,
-      sellerContactInfo,
-      guestCheckoutNotice,
-      btcWalletAddress,
-      ethWalletAddress,
-      usdtWalletAddress,
-      usdtNetwork
-    );
+    const sb = req.supabase!;
+    const { data, error } = await sb
+      .from('website_settings')
+      .upsert(
+        {
+          id: 1,
+          site_name: siteName || 'RetroMarket',
+          tagline,
+          logo_path: logoPath,
+          default_currency: defaultCurrency,
+          support_email: supportEmailRaw,
+          seller_contact_info: sellerContactInfo,
+          guest_checkout_notice: guestCheckoutNotice,
+        },
+        { onConflict: 'id' }
+      )
+      .select('*')
+      .single();
 
-    writeAuditLog(db, {
+    if (error) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
+    await writeAuditLog(sb, {
       adminUserId: req.admin!.userId,
       adminEmail: req.admin!.email,
       action: 'SETTINGS_UPDATED',
-      targetType: 'website_settings',
+      targetType: 'settings',
       targetId: '1',
-      details: {
-        siteName,
-        defaultCurrency,
-        btcConfigured: Boolean(btcWalletAddress),
-        ethConfigured: Boolean(ethWalletAddress),
-        usdtConfigured: Boolean(usdtWalletAddress),
-      },
+      details: { siteName, defaultCurrency },
       ipAddress: getClientIp(req),
     });
 
-    const updated = db.prepare('SELECT * FROM website_settings WHERE id = 1').get();
-    res.json({ settings: updated });
+    res.json({ settings: data });
   });
 
   return router;

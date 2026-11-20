@@ -71,47 +71,13 @@
           </table>
 
           <div class="panel-footer">
-            <button type="button" id="toggle-forgot-password-btn" class="admin-link-btn">Forgot Password?</button>
+            <span class="text-muted">Authenticated via Supabase Auth &middot; Manage passwords in Supabase Dashboard.</span>
             <button type="submit" id="admin-signin-btn" class="btn btn-primary">Sign In &raquo;</button>
           </div>
         </form>
 
         <div class="panel-body">
           <div id="admin-login-message" class="inline-message" role="alert" aria-live="polite"></div>
-        </div>
-      </section>
-
-      <section id="admin-forgot-panel" class="panel is-hidden" aria-labelledby="forgot-heading">
-        <div class="panel-header">
-          <span id="forgot-heading">Administrator Password Recovery</span>
-          <span class="panel-header-sub">Single-use expiring reset link</span>
-        </div>
-        <form id="admin-forgot-form" novalidate>
-          <table class="form-table">
-            <tbody>
-              <tr>
-                <th scope="row"><label for="forgot-email">Admin Email <span class="form-required">*</span></label></th>
-                <td>
-                  <input
-                    id="forgot-email"
-                    name="email"
-                    type="email"
-                    class="form-input"
-                    autocomplete="email"
-                    required
-                  />
-                  <span class="form-hint">If the email matches an active administrator account and SMTP is configured, a single-use reset link will be sent.</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="panel-footer">
-            <span class="text-muted">Reset links expire automatically and invalidate prior sessions.</span>
-            <button type="submit" id="admin-forgot-submit-btn" class="btn btn-primary">Send Reset Link</button>
-          </div>
-        </form>
-        <div class="panel-body">
-          <div id="admin-forgot-message" class="inline-message" role="status" aria-live="polite"></div>
         </div>
       </section>
     </main>

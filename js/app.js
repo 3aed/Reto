@@ -633,6 +633,43 @@
           </div>`
         : '';
 
+    const contact = item.sellerContact || {};
+    const directContactBtns = [];
+    if (contact.whatsappUrl) {
+      directContactBtns.push(
+        `<a href="${escapeHtml(contact.whatsappUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-compact">WhatsApp</a>`
+      );
+    }
+    if (contact.telegramUrl) {
+      directContactBtns.push(
+        `<a href="${escapeHtml(contact.telegramUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-compact">Telegram</a>`
+      );
+    }
+    if (contact.email) {
+      directContactBtns.push(
+        `<a href="mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent('RetroMarket Inquiry: ' + item.name)}" class="btn btn-compact">Email Seller</a>`
+      );
+    }
+    if (contact.phone) {
+      directContactBtns.push(
+        `<a href="tel:${encodeURIComponent(contact.phone)}" class="btn btn-compact">Call: ${escapeHtml(contact.phone)}</a>`
+      );
+    }
+    if (contact.otherUrl) {
+      directContactBtns.push(
+        `<a href="${escapeHtml(contact.otherUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-compact">${escapeHtml(contact.otherLabel || 'Seller Link')}</a>`
+      );
+    }
+
+    const directContactHtml =
+      directContactBtns.length > 0 || contact.notes
+        ? `<div class="seller-direct-links">
+            <div class="seller-direct-links-title">Direct Seller Contact</div>
+            ${directContactBtns.length > 0 ? `<div class="seller-contact-btn-row">${directContactBtns.join('')}</div>` : ''}
+            ${contact.notes ? `<div class="seller-contact-note">${escapeHtml(contact.notes)}</div>` : ''}
+          </div>`
+        : '';
+
     const disabledAttr = item.inStock ? '' : 'disabled';
 
     container.innerHTML = `
@@ -640,7 +677,7 @@
         <div>
           <div class="product-detail-photo-box">
             <img id="product-main-image" src="${escapeHtml(gallery[0].src)}" alt="${escapeHtml(item.name)}" class="product-detail-photo" />
-            <div id="product-main-caption" class="product-detail-caption">${escapeHtml(gallery[0].caption || item.name)}</div>
+            <div id="product-main-caption" class="product-detail-caption">${escapeHtml(gallery[0].caption || item.name)}${gallery.length > 1 ? ' (1 / ' + gallery.length + ')' : ''}</div>
             ${thumbsHtml}
           </div>
 
@@ -648,13 +685,14 @@
             <div class="seller-info-header">Seller Information</div>
             <table class="sidebar-stat-table">
               <tbody>
-                <tr><td class="sidebar-stat-label">Seller</td><td class="sidebar-stat-val"><a href="marketplace.html?seller=${encodeURIComponent(seller.username)}">${escapeHtml(seller.username)}</a></td></tr>
+                <tr><td class="sidebar-stat-label">Seller</td><td class="sidebar-stat-val"><a href="marketplace.html?seller=${encodeURIComponent(seller.username)}">${escapeHtml(contact.contactName || seller.username)}</a></td></tr>
                 <tr><td class="sidebar-stat-label">Location</td><td class="sidebar-stat-val">${escapeHtml(seller.location || 'Not specified')}</td></tr>
                 <tr><td class="sidebar-stat-label">Specialty</td><td class="sidebar-stat-val">${escapeHtml(seller.specialty || 'General')}</td></tr>
                 <tr><td class="sidebar-stat-label">Avg. Response</td><td class="sidebar-stat-val">${escapeHtml(seller.responseTime || 'Within 24 hours')}</td></tr>
                 <tr><td class="sidebar-stat-label">Catalog Items</td><td class="sidebar-stat-val"><a href="marketplace.html?seller=${encodeURIComponent(seller.username)}">${Number(seller.listingCount || 0)} active</a></td></tr>
               </tbody>
             </table>
+            ${directContactHtml}
           </div>
         </div>
 
@@ -702,13 +740,17 @@
 
     const mainImg = document.getElementById('product-main-image');
     const mainCaption = document.getElementById('product-main-caption');
-    container.querySelectorAll('.gallery-thumb-btn').forEach((btn) => {
+    const thumbButtons = Array.from(container.querySelectorAll('.gallery-thumb-btn'));
+    thumbButtons.forEach((btn, idx) => {
       btn.addEventListener('click', () => {
         const nextSrc = btn.getAttribute('data-gallery-src');
         const nextCap = btn.getAttribute('data-gallery-caption');
         if (mainImg && nextSrc) mainImg.src = nextSrc;
-        if (mainCaption && nextCap) mainCaption.textContent = nextCap;
-        container.querySelectorAll('.gallery-thumb-btn').forEach((el) => el.classList.remove('is-active'));
+        if (mainCaption && nextCap) {
+          mainCaption.textContent =
+            nextCap + (gallery.length > 1 ? ' (' + (idx + 1) + ' / ' + gallery.length + ')' : '');
+        }
+        thumbButtons.forEach((el) => el.classList.remove('is-active'));
         btn.classList.add('is-active');
       });
     });
@@ -791,6 +833,21 @@
         <tr><th scope="row">Handling Time</th><td>${escapeHtml(item.shipping.handling)}</td></tr>
         <tr><th scope="row">Ships From</th><td>${escapeHtml(item.shipping.shipsFrom || 'Not specified')}</td></tr>
         <tr><th scope="row">Return Policy</th><td>${escapeHtml(item.shipping.returns)}</td></tr>`;
+    }
+
+    const attrsPanel = document.getElementById('product-attributes-panel');
+    const attrsBody = document.getElementById('product-attributes-body');
+    if (attrsPanel && attrsBody) {
+      const attrEntries = Object.entries(item.customAttributes || {});
+      if (attrEntries.length === 0) {
+        attrsPanel.classList.add('is-hidden');
+        attrsBody.innerHTML = '';
+      } else {
+        attrsPanel.classList.remove('is-hidden');
+        attrsBody.innerHTML = attrEntries
+          .map(([k, v]) => `<tr><th scope="row">${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`)
+          .join('');
+      }
     }
 
     if (relatedBody) {

@@ -110,6 +110,11 @@
           <span class="cs-gw-required-note">* Required field</span>
         </div>
 
+        <div class="cs-gw-unavailable-banner" role="status">
+          <strong>CyberSource Payment Processing Currently Unavailable</strong>
+          This Payment Details interface is a frontend-only placeholder. No card transaction is processed and no payment API is connected.
+        </div>
+
         <!-- Primary Payment Details Form View -->
         <form id="cs-gw-form" novalidate>
           <!-- 1. Card Type -->
@@ -257,9 +262,9 @@
 
         <!-- Clean Confirmation View after Valid Submission -->
         <div id="cs-gw-confirm-view" class="cs-gw-view-hidden">
-          <div class="cs-gw-confirm-banner">
-            <strong>Card Details Validated</strong>
-            Your payment card details passed format verification for this order.
+          <div class="cs-gw-unavailable-banner">
+            <strong>CyberSource Payment Processing Unavailable (No Charge Processed)</strong>
+            Your card format was validated locally in the browser only. No payment was submitted or charged.
           </div>
 
           <table class="cs-gw-confirm-table">
@@ -288,7 +293,7 @@
           </table>
 
           <div class="cs-gw-confirm-note">
-            <strong>Security Notice:</strong> Raw card numbers and CVN codes are never transmitted to or stored on RetroMarket servers. Live card settlement occurs exclusively once CyberSource merchant credentials are configured on the server.
+            <strong>Notice:</strong> CyberSource payment processing is currently unavailable. Raw card numbers and CVN codes are never transmitted to or stored on any server. Please complete your order using Cryptocurrency or Contact Seller / Manual Payment.
           </div>
 
           <div class="cs-gw-confirm-actions">

@@ -111,12 +111,12 @@
                 <td class="text-right text-muted">Not started</td>
               </tr>
               <tr>
-                <td class="sidebar-stat-label"><span class="pay-status-awaiting">Awaiting Verification</span></td>
-                <td class="text-right text-muted">Under review</td>
+                <td class="sidebar-stat-label"><span class="pay-status-awaiting">Pending Verification</span></td>
+                <td class="text-right text-muted">Manual review</td>
               </tr>
               <tr>
                 <td class="sidebar-stat-label"><span class="pay-status-paid">Paid</span></td>
-                <td class="text-right text-muted">Server verified</td>
+                <td class="text-right text-muted">Admin verified</td>
               </tr>
               <tr>
                 <td class="sidebar-stat-label"><span class="pay-status-failed">Failed</span></td>
@@ -138,9 +138,9 @@
           <div class="panel-header"><span>Payment Security</span></div>
           <div class="panel-body">
             <ul class="sidebar-guidelines">
-              <li>Card numbers are never entered on or stored by RetroMarket.</li>
-              <li>CyberSource payments require verified server-to-server webhook settlement.</li>
-              <li>Cryptocurrency transactions require server-side on-chain confirmation.</li>
+              <li>Card numbers are never transmitted to or stored by RetroMarket.</li>
+              <li>CyberSource card processing is currently unavailable (frontend placeholder only).</li>
+              <li>Cryptocurrency and manual payments remain <strong>Pending Verification</strong> until verified by an administrator.</li>
             </ul>
           </div>
         </section>
@@ -148,9 +148,6 @@
 
       <!-- Main Payment Content Column -->
       <main class="main-content">
-        <!-- Gateway Return Banner (if redirected from CyberSource) -->
-        <div id="cs-return-state-box" class="return-state-box section-gap" role="status" aria-live="polite"></div>
-
         <!-- Load Order for Payment Form -->
         <section class="panel section-gap" aria-labelledby="payment-lookup-heading">
           <div class="panel-header panel-header-dark">
@@ -234,7 +231,7 @@
                 aria-controls="payment-pane-cybersource"
                 data-payment-tab="cybersource"
               >
-                1. CyberSource (Hosted Checkout)
+                1. CyberSource (Unavailable)
               </button>
               <button
                 type="button"
@@ -244,7 +241,7 @@
                 aria-controls="payment-pane-cryptocurrency"
                 data-payment-tab="cryptocurrency"
               >
-                2. Cryptocurrency (BTC / ETH / USDT)
+                2. Cryptocurrency (Manual Verification)
               </button>
               <button
                 type="button"
@@ -258,12 +255,13 @@
               </button>
             </div>
 
-            <!-- TAB 1: CYBERSOURCE SECURE ACCEPTANCE HOSTED CHECKOUT -->
+            <!-- TAB 1: CYBERSOURCE (FRONTEND-ONLY PLACEHOLDER) -->
             <div id="payment-pane-cybersource" class="payment-pane is-active" role="tabpanel">
-              <h2 class="payment-pane-title">CyberSource Secure Acceptance Hosted Checkout</h2>
+              <h2 class="payment-pane-title">CyberSource Payment Gateway</h2>
 
-              <div id="cs-config-notice" class="notice-box section-gap">
-                Checking CyberSource Hosted Checkout gateway configuration...
+              <div id="cs-config-notice" class="cs-unavailable-notice section-gap">
+                <strong>CyberSource Payment Processing Currently Unavailable:</strong>
+                Online card payment processing via CyberSource is currently unavailable on RetroMarket. The CyberSource Payment Details interface below is preserved as a frontend-only placeholder and does not connect to CyberSource APIs or process real transactions. Please use <strong>Cryptocurrency</strong> or <strong>Contact Seller / Manual Payment</strong> to complete your order.
               </div>
 
               <table class="data-table section-gap">
@@ -287,32 +285,34 @@
                 </tbody>
               </table>
 
-              <h3 class="product-desc-heading">Payment Instructions</h3>
+              <h3 class="product-desc-heading">Payment Information</h3>
               <ol class="instruction-list">
-                <li>Click <strong>Proceed to CyberSource Hosted Checkout</strong> to generate a server-signed Secure Acceptance checkout session.</li>
-                <li>Enter your Visa or MasterCard payment details securely on CyberSource's hosted payment page.</li>
-                <li>After authorization, CyberSource returns you to RetroMarket and delivers an authenticated server-to-server notification confirming final settlement.</li>
+                <li>CyberSource card processing is currently unavailable and disconnected from live payment APIs.</li>
+                <li>You may preview the preserved CyberSource <strong>Payment Details</strong> interface below; no card data is sent to any server and your order will not be charged.</li>
+                <li>To pay for this order now, switch to the <strong>Cryptocurrency</strong> or <strong>Contact Seller / Manual Payment</strong> tab above.</li>
               </ol>
 
               <div class="product-detail-actions">
                 <button id="cs-initiate-btn" type="button" class="btn btn-primary">
-                  Proceed to CyberSource Hosted Checkout &raquo;
+                  Open CyberSource Payment Details (Preview) &raquo;
                 </button>
               </div>
 
               <div id="cs-action-feedback" class="inline-message" role="status" aria-live="polite"></div>
             </div>
 
-            <!-- TAB 2: CRYPTOCURRENCY PAYMENTS (BTC, ETH, USDT) -->
+            <!-- TAB 2: MANUAL CRYPTOCURRENCY PAYMENTS -->
             <div id="payment-pane-cryptocurrency" class="payment-pane" role="tabpanel">
-              <h2 class="payment-pane-title">Cryptocurrency Payment (BTC / ETH / USDT)</h2>
+              <h2 class="payment-pane-title">Cryptocurrency Payment (Manual Verification)</h2>
 
-              <!-- Coin Selector -->
-              <div class="crypto-coin-bar" role="group" aria-label="Select Cryptocurrency">
+              <div class="notice-box section-gap">
+                <strong>Manual Verification Process:</strong> Select a cryptocurrency configured by the store administrator below, send payment to the displayed wallet address, and submit your payment confirmation. Your order will remain <strong>Pending Verification</strong> until the administrator manually verifies receipt and updates your order status.
+              </div>
+
+              <!-- Dynamic Admin-Configured Coin Selector -->
+              <div id="crypto-coin-bar" class="crypto-coin-bar" role="group" aria-label="Select Cryptocurrency">
                 <strong>Select Currency:</strong>
-                <button type="button" class="crypto-coin-btn is-active" data-crypto-coin="BTC" aria-pressed="true">BTC (Bitcoin)</button>
-                <button type="button" class="crypto-coin-btn" data-crypto-coin="ETH" aria-pressed="false">ETH (Ethereum)</button>
-                <button type="button" class="crypto-coin-btn" data-crypto-coin="USDT" aria-pressed="false">USDT (Tether)</button>
+                <span id="crypto-method-buttons">Loading configured cryptocurrencies...</span>
               </div>
 
               <table class="data-table section-gap">
@@ -332,34 +332,24 @@
                 </tbody>
               </table>
 
-              <div class="product-detail-actions section-gap">
-                <button id="crypto-generate-invoice-btn" type="button" class="btn btn-primary">
-                  Generate Cryptocurrency Invoice &raquo;
-                </button>
+              <div id="crypto-empty-notice" class="error-box section-gap">
+                No cryptocurrency wallets are currently configured by the store administrator. Please use the Contact Seller / Manual Payment tab.
               </div>
 
-              <!-- Generated Server Invoice Details -->
-              <div id="crypto-invoice-details" class="is-hidden section-gap">
+              <!-- Selected Cryptocurrency Wallet Details, QR Code & Instructions -->
+              <div id="crypto-method-details" class="is-hidden section-gap">
                 <table class="data-table section-gap">
                   <tbody>
                     <tr>
-                      <th scope="row" class="receipt-label-col">Invoice Reference</th>
-                      <td id="crypto-inv-ref" class="mono-ref"></td>
+                      <th scope="row" class="receipt-label-col">Cryptocurrency</th>
+                      <td id="crypto-detail-name"><strong>&mdash;</strong></td>
                     </tr>
                     <tr>
-                      <th scope="row">Currency &amp; Network</th>
-                      <td id="crypto-inv-coin"></td>
+                      <th scope="row">Network</th>
+                      <td id="crypto-detail-network">&mdash;</td>
                     </tr>
                     <tr>
-                      <th scope="row">Exact Amount Due</th>
-                      <td id="crypto-inv-amount" class="price"></td>
-                    </tr>
-                    <tr>
-                      <th scope="row">Invoice Expiration (UTC)</th>
-                      <td id="crypto-inv-expires" class="mono-ref"></td>
-                    </tr>
-                    <tr>
-                      <th scope="row">Merchant Wallet Address</th>
+                      <th scope="row">Wallet Address</th>
                       <td>
                         <div class="wallet-copy-row">
                           <label for="crypto-wallet-address" class="sr-only">Merchant Wallet Address</label>
@@ -369,31 +359,57 @@
                         <span id="crypto-copy-feedback" class="form-hint" role="status" aria-live="polite"></span>
                       </td>
                     </tr>
+                    <tr id="crypto-qr-row" class="is-hidden">
+                      <th scope="row">Payment QR Code</th>
+                      <td>
+                        <img id="crypto-qr-img" src="" alt="Cryptocurrency wallet QR code" class="crypto-qr-preview" />
+                      </td>
+                    </tr>
+                    <tr id="crypto-instructions-row" class="is-hidden">
+                      <th scope="row">Payment Instructions</th>
+                      <td>
+                        <div id="crypto-instructions-box" class="crypto-instructions-box"></div>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
 
-              <h3 class="product-desc-heading">Submit Broadcasted Transaction Hash</h3>
+              <h3 class="product-desc-heading">Submit Manual Payment Confirmation</h3>
               <form id="crypto-tx-form" novalidate>
                 <table class="form-table">
                   <tbody>
                     <tr>
-                      <th scope="row"><label for="crypto-tx-hash">Transaction Hash <span class="form-required">*</span></label></th>
+                      <th scope="row"><label for="crypto-tx-hash">Transaction ID / Reference</label></th>
                       <td>
                         <input
                           id="crypto-tx-hash"
                           name="tx_hash"
                           type="text"
                           class="form-input"
-                          placeholder="Enter confirmed blockchain transaction hash"
-                          required
+                          placeholder="Enter your transfer TXID or wallet reference (optional)"
                         />
-                        <button type="submit" class="btn btn-primary">Submit for Blockchain Verification</button>
-                        <span class="form-hint">Submitted hashes are verified on-chain by the server before an order is marked Paid.</span>
+                        <span class="form-hint">Include your transaction hash or sender reference to help the administrator verify your transfer faster.</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row"><label for="crypto-tx-note">Payment Note</label></th>
+                      <td>
+                        <input
+                          id="crypto-tx-note"
+                          name="tx_note"
+                          type="text"
+                          class="form-input"
+                          placeholder="Optional note (e.g. amount sent, sender wallet last 6 chars)"
+                        />
                       </td>
                     </tr>
                   </tbody>
                 </table>
+                <div class="panel-footer">
+                  <span>Order remains <strong>Pending Verification</strong> until manually confirmed by an administrator.</span>
+                  <button id="crypto-submit-btn" type="submit" class="btn btn-primary">Mark Sent &amp; Request Verification</button>
+                </div>
               </form>
               <div id="crypto-tx-feedback" class="inline-message" role="status" aria-live="polite"></div>
             </div>

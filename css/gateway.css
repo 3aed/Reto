@@ -92,6 +92,24 @@
   white-space: nowrap;
 }
 
+.cs-gw-unavailable-banner {
+  background-color: #fffbeb;
+  border: 1px solid #d97706;
+  border-radius: 4px;
+  padding: 9px 11px;
+  margin-bottom: 14px;
+  font-size: 11px;
+  color: #78350f;
+  line-height: 1.4;
+}
+
+.cs-gw-unavailable-banner strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: #92400e;
+}
+
 /* Field Blocks */
 .cs-gw-field {
   margin-bottom: 16px;

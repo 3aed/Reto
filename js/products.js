@@ -28,16 +28,16 @@
         'Shop and check out as a guest without creating a customer account. Save your Order Reference ID to track your order.',
     },
     paymentCapabilities: {
-      cybersource: { configured: false, environment: 'test' },
-      cryptocurrency: {
-        wallets: {
-          BTC: { configured: false, network: 'Bitcoin Mainnet', requiredConfirmations: 2 },
-          ETH: { configured: false, network: 'Ethereum Mainnet', requiredConfirmations: 12 },
-          USDT: { configured: false, network: 'ERC-20', requiredConfirmations: 12 },
-        },
-        verifiers: {},
+      cybersource: {
+        available: false,
+        placeholderOnly: true,
+        notice: 'CyberSource payment processing is currently unavailable.',
       },
-      manual: { configured: true, emailNotificationConfigured: false },
+      cryptocurrency: {
+        manualVerificationOnly: true,
+        methods: [],
+      },
+      manual: { configured: true },
     },
     categories: [],
     sellers: [],

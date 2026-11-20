@@ -1,23 +1,22 @@
 import crypto from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AppConfig } from './config.ts';
-import type { DbConnection } from './db.ts';
+import { isSupabaseConfigured } from './config.ts';
+import { createAuthedSupabaseClient, createPublicSupabaseClient } from './supabase.ts';
 
 export interface AuthenticatedAdmin {
-  sessionId: number;
-  userId: number;
+  userId: string;
   email: string;
   role: string;
   csrfToken: string;
   expiresAt: string;
+  accessToken: string;
 }
 
 export interface AdminRequest extends Request {
   admin?: AuthenticatedAdmin;
-}
-
-export function sha256Hex(value: string): string {
-  return crypto.createHash('sha256').update(value, 'utf8').digest('hex');
+  supabase?: SupabaseClient;
 }
 
 export function generateSecureToken(bytes: number = 32): string {
@@ -51,20 +50,6 @@ export function isValidPhone(phone: string): boolean {
   return digits.length >= 7 && digits.length <= 15;
 }
 
-export function isStrongPassword(password: string): { valid: boolean; reason?: string } {
-  const val = String(password || '');
-  if (val.length < 12) {
-    return { valid: false, reason: 'Password must be at least 12 characters long.' };
-  }
-  if (!/[a-z]/.test(val) || !/[A-Z]/.test(val) || !/\d/.test(val) || !/[^A-Za-z0-9]/.test(val)) {
-    return {
-      valid: false,
-      reason: 'Password must include uppercase, lowercase, a number, and a special character.',
-    };
-  }
-  return { valid: true };
-}
-
 export function slugify(input: string): string {
   return String(input || '')
     .toLowerCase()
@@ -77,7 +62,6 @@ export function slugify(input: string): string {
 export function sanitizeImageUrl(url: string | undefined, fallback: string): string {
   const raw = String(url || '').trim();
   if (!raw) return fallback;
-  // Block protocol-relative URLs, javascript:, data:, vbscript:, or path traversal
   if (/^(javascript|data|vbscript|file):/i.test(raw) || raw.startsWith('//') || raw.includes('..')) {
     return fallback;
   }
@@ -88,6 +72,135 @@ export function sanitizeImageUrl(url: string | undefined, fallback: string): str
     return raw;
   }
   return fallback;
+}
+
+export function sanitizeExternalUrl(url: unknown): string {
+  const raw = String(url || '').trim();
+  if (!raw || raw.length > 500) return '';
+  if (/^(javascript|data|vbscript|file):/i.test(raw) || raw.startsWith('//')) {
+    return '';
+  }
+  if (/^https?:\/\/[^\s"'<>]+$/i.test(raw)) {
+    return raw;
+  }
+  return '';
+}
+
+export function sanitizeWhatsAppContact(rawInput: unknown): { value: string; href: string } {
+  const raw = String(rawInput || '').trim().slice(0, 200);
+  if (!raw) return { value: '', href: '' };
+  if (/^https?:\/\/(wa\.me|api\.whatsapp\.com|chat\.whatsapp\.com)\/[^\s"'<>]+$/i.test(raw)) {
+    return { value: raw, href: raw };
+  }
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length >= 7 && digits.length <= 15) {
+    return { value: raw, href: `https://wa.me/${digits}` };
+  }
+  return { value: '', href: '' };
+}
+
+export function sanitizeTelegramContact(rawInput: unknown): { value: string; href: string } {
+  const raw = String(rawInput || '').trim().slice(0, 200);
+  if (!raw) return { value: '', href: '' };
+  if (/^https?:\/\/(t\.me|telegram\.me)\/[a-zA-Z0-9_+/=-]+$/i.test(raw)) {
+    return { value: raw, href: raw };
+  }
+  const handle = raw.replace(/^@+/, '');
+  if (/^[a-zA-Z][a-zA-Z0-9_]{3,31}$/.test(handle)) {
+    return { value: `@${handle}`, href: `https://t.me/${handle}` };
+  }
+  return { value: '', href: '' };
+}
+
+export function sanitizeKeyValueMap(
+  input: unknown,
+  maxEntries: number = 30
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return out;
+  }
+  let count = 0;
+  for (const [rawKey, rawVal] of Object.entries(input as Record<string, unknown>)) {
+    if (count >= maxEntries) break;
+    const key = String(rawKey || '').trim().slice(0, 80);
+    const val = String(rawVal ?? '').trim().slice(0, 300);
+    if (!key || !val) continue;
+    out[key] = val;
+    count += 1;
+  }
+  return out;
+}
+
+export interface SanitizedSellerContact {
+  contactName: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  whatsappUrl: string;
+  telegram: string;
+  telegramUrl: string;
+  otherLabel: string;
+  otherUrl: string;
+  notes: string;
+}
+
+export function sanitizeSellerContact(input: unknown): SanitizedSellerContact {
+  const obj = (input && typeof input === 'object' && !Array.isArray(input)
+    ? input
+    : {}) as Record<string, unknown>;
+  const emailRaw = String(obj.email || '').trim().toLowerCase();
+  const phoneRaw = String(obj.phone || '').trim().slice(0, 40);
+  const wa = sanitizeWhatsAppContact(obj.whatsapp);
+  const tg = sanitizeTelegramContact(obj.telegram);
+  const otherUrl = sanitizeExternalUrl(obj.otherUrl);
+
+  return {
+    contactName: String(obj.contactName || '').trim().slice(0, 100),
+    email: isValidEmail(emailRaw) ? emailRaw : '',
+    phone: phoneRaw && isValidPhone(phoneRaw) ? phoneRaw : '',
+    whatsapp: wa.value,
+    whatsappUrl: wa.href,
+    telegram: tg.value,
+    telegramUrl: tg.href,
+    otherLabel: String(obj.otherLabel || '').trim().slice(0, 60),
+    otherUrl,
+    notes: String(obj.notes || '').trim().slice(0, 400),
+  };
+}
+
+export function detectImageMagicBytes(
+  buffer: Buffer
+): { mime: 'image/jpeg' | 'image/png' | 'image/webp'; ext: 'jpg' | 'png' | 'webp' } | null {
+  if (!buffer || buffer.length < 12) return null;
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { mime: 'image/jpeg', ext: 'jpg' };
+  }
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return { mime: 'image/png', ext: 'png' };
+  }
+  if (
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return { mime: 'image/webp', ext: 'webp' };
+  }
+  return null;
 }
 
 export function parseCents(value: unknown): number | null {
@@ -133,7 +246,7 @@ export function securityHeadersMiddleware(cfg: AppConfig) {
       "connect-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",
-      "form-action 'self' https://testsecureacceptance.cybersource.com https://secureacceptance.cybersource.com",
+      "form-action 'self'",
     ];
     if (isAdminRequest || !cfg.allowIframePreview) {
       cspDirectives.push("frame-ancestors 'none'");
@@ -164,7 +277,6 @@ export function createRateLimiter(options: {
 
   return (req: Request, res: Response, next: NextFunction) => {
     const now = Date.now();
-    // Opportunistic cleanup to keep memory bounded
     if (buckets.size > 5000) {
       for (const [k, b] of buckets.entries()) {
         if (b.resetAt <= now) buckets.delete(k);
@@ -195,70 +307,155 @@ export function createRateLimiter(options: {
   };
 }
 
-export function getAuthenticatedAdmin(
-  db: DbConnection,
+export function setAdminAuthCookies(
+  res: Response,
   cfg: AppConfig,
-  req: Request
-): AuthenticatedAdmin | null {
-  const rawToken = req.cookies?.[cfg.adminCookieName];
-  if (!rawToken || typeof rawToken !== 'string' || rawToken.length < 32) {
+  tokens: { accessToken: string; refreshToken: string; csrfToken: string; expiresInSec?: number }
+): void {
+  const accessMaxAgeMs = Math.max(900, tokens.expiresInSec || 3600) * 1000;
+  const refreshMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
+  const baseOpts = {
+    httpOnly: true,
+    secure: cfg.isProduction,
+    sameSite: 'strict' as const,
+    path: '/',
+  };
+  res.cookie(cfg.adminAccessCookieName, tokens.accessToken, {
+    ...baseOpts,
+    maxAge: accessMaxAgeMs,
+  });
+  res.cookie(cfg.adminRefreshCookieName, tokens.refreshToken, {
+    ...baseOpts,
+    maxAge: refreshMaxAgeMs,
+  });
+  res.cookie(cfg.adminCsrfCookieName, tokens.csrfToken, {
+    ...baseOpts,
+    maxAge: refreshMaxAgeMs,
+  });
+}
+
+export function clearAdminAuthCookies(res: Response, cfg: AppConfig): void {
+  const baseOpts = {
+    httpOnly: true,
+    secure: cfg.isProduction,
+    sameSite: 'strict' as const,
+    path: '/',
+  };
+  res.clearCookie(cfg.adminAccessCookieName, baseOpts);
+  res.clearCookie(cfg.adminRefreshCookieName, baseOpts);
+  res.clearCookie(cfg.adminCsrfCookieName, baseOpts);
+}
+
+export async function getAuthenticatedAdmin(
+  cfg: AppConfig,
+  req: Request,
+  res?: Response
+): Promise<{ admin: AuthenticatedAdmin; supabase: SupabaseClient } | null> {
+  if (!isSupabaseConfigured(cfg)) {
     return null;
   }
 
-  const tokenHash = sha256Hex(rawToken);
-  const row = db
-    .prepare(
-      `
-      SELECT
-        s.id AS session_id,
-        s.csrf_token,
-        s.expires_at,
-        u.id AS user_id,
-        u.email,
-        u.role,
-        u.active
-      FROM admin_sessions s
-      JOIN admin_users u ON u.id = s.admin_user_id
-      WHERE s.token_hash = ?
-        AND s.expires_at > datetime('now')
-      LIMIT 1
-    `
-    )
-    .get(tokenHash) as
-    | {
-        session_id: number;
-        csrf_token: string;
-        expires_at: string;
-        user_id: number;
-        email: string;
-        role: string;
-        active: number;
-      }
-    | undefined;
+  let accessToken = String(req.cookies?.[cfg.adminAccessCookieName] || '').trim();
+  const refreshToken = String(req.cookies?.[cfg.adminRefreshCookieName] || '').trim();
+  const csrfToken = String(req.cookies?.[cfg.adminCsrfCookieName] || '').trim();
 
-  if (!row || row.active !== 1) {
+  if ((!accessToken && !refreshToken) || !csrfToken) {
     return null;
+  }
+
+  const publicClient = createPublicSupabaseClient(cfg);
+  let user = null;
+  let expiresAtIso = '';
+
+  if (accessToken) {
+    const { data, error } = await publicClient.auth.getUser(accessToken);
+    if (!error && data?.user) {
+      user = data.user;
+    }
+  }
+
+  // Attempt transparent refresh if access token expired but refresh token is valid
+  if (!user && refreshToken) {
+    const { data, error } = await publicClient.auth.refreshSession({
+      refresh_token: refreshToken,
+    });
+    if (!error && data?.session && data?.user) {
+      accessToken = data.session.access_token;
+      user = data.user;
+      expiresAtIso = data.session.expires_at
+        ? new Date(data.session.expires_at * 1000).toISOString().replace('T', ' ').slice(0, 19)
+        : '';
+      if (res) {
+        setAdminAuthCookies(res, cfg, {
+          accessToken: data.session.access_token,
+          refreshToken: data.session.refresh_token,
+          csrfToken,
+          expiresInSec: data.session.expires_in,
+        });
+      }
+    }
+  }
+
+  if (!user || !accessToken) {
+    return null;
+  }
+
+  const authedClient = createAuthedSupabaseClient(cfg, accessToken);
+  const { data: adminRow, error: adminErr } = await authedClient
+    .from('admin_users')
+    .select('user_id, email, role, active')
+    .eq('user_id', user.id)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (adminErr || !adminRow) {
+    return null;
+  }
+
+  if (!expiresAtIso) {
+    try {
+      const payloadPart = accessToken.split('.')[1];
+      if (payloadPart) {
+        const decoded = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8'));
+        if (decoded?.exp) {
+          expiresAtIso = new Date(Number(decoded.exp) * 1000)
+            .toISOString()
+            .replace('T', ' ')
+            .slice(0, 19);
+        }
+      }
+    } catch {
+      expiresAtIso = '';
+    }
   }
 
   return {
-    sessionId: row.session_id,
-    userId: row.user_id,
-    email: row.email,
-    role: row.role,
-    csrfToken: row.csrf_token,
-    expiresAt: row.expires_at,
+    admin: {
+      userId: String(adminRow.user_id),
+      email: String(adminRow.email || user.email || ''),
+      role: String(adminRow.role || 'admin'),
+      csrfToken,
+      expiresAt: expiresAtIso || 'Active Session',
+      accessToken,
+    },
+    supabase: authedClient,
   };
 }
 
-export function requireAdminAuth(db: DbConnection, cfg: AppConfig) {
-  return (req: AdminRequest, res: Response, next: NextFunction) => {
-    const admin = getAuthenticatedAdmin(db, cfg, req);
-    if (!admin) {
+export function requireAdminAuth(cfg: AppConfig) {
+  return async (req: AdminRequest, res: Response, next: NextFunction) => {
+    try {
+      const resolved = await getAuthenticatedAdmin(cfg, req, res);
+      if (!resolved) {
+        res.status(401).json({ error: 'Administrator authentication required.' });
+        return;
+      }
+      req.admin = resolved.admin;
+      req.supabase = resolved.supabase;
+      next();
+    } catch {
       res.status(401).json({ error: 'Administrator authentication required.' });
-      return;
     }
-    req.admin = admin;
-    next();
   };
 }
 
@@ -280,10 +477,10 @@ export function requireAdminCsrf(req: AdminRequest, res: Response, next: NextFun
   next();
 }
 
-export function writeAuditLog(
-  db: DbConnection,
+export async function writeAuditLog(
+  supabase: SupabaseClient,
   entry: {
-    adminUserId?: number | null;
+    adminUserId?: string | null;
     adminEmail?: string;
     action: string;
     targetType?: string;
@@ -291,43 +488,18 @@ export function writeAuditLog(
     details?: Record<string, unknown>;
     ipAddress?: string;
   }
-): void {
-  db.prepare(
-    `
-    INSERT INTO audit_logs (
-      admin_user_id, admin_email, action, target_type, target_id, details_json, ip_address
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `
-  ).run(
-    entry.adminUserId ?? null,
-    entry.adminEmail || '',
-    entry.action,
-    entry.targetType || '',
-    entry.targetId !== undefined ? String(entry.targetId) : '',
-    JSON.stringify(entry.details || {}),
-    entry.ipAddress || ''
-  );
-}
-
-export function setAdminSessionCookie(
-  res: Response,
-  cfg: AppConfig,
-  rawSessionToken: string
-): void {
-  res.cookie(cfg.adminCookieName, rawSessionToken, {
-    httpOnly: true,
-    secure: cfg.isProduction,
-    sameSite: 'strict',
-    path: '/',
-    maxAge: cfg.adminSessionTtlMinutes * 60 * 1000,
-  });
-}
-
-export function clearAdminSessionCookie(res: Response, cfg: AppConfig): void {
-  res.clearCookie(cfg.adminCookieName, {
-    httpOnly: true,
-    secure: cfg.isProduction,
-    sameSite: 'strict',
-    path: '/',
-  });
+): Promise<void> {
+  try {
+    await supabase.from('audit_logs').insert({
+      admin_user_id: entry.adminUserId ?? null,
+      admin_email: entry.adminEmail || '',
+      action: entry.action,
+      target_type: entry.targetType || '',
+      target_id: entry.targetId !== undefined ? String(entry.targetId) : '',
+      details_json: entry.details || {},
+      ip_address: entry.ipAddress || '',
+    });
+  } catch {
+    // Non-fatal audit logging failure
+  }
 }

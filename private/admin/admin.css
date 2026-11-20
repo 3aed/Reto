@@ -283,12 +283,137 @@
   cursor: pointer;
 }
 
+.admin-form-subhead {
+  background-color: #E7EFF6;
+  color: var(--rm-dark-blue);
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 6px 10px;
+}
+
+.admin-upload-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background-color: var(--rm-light-gray);
+  border: 1px solid var(--rm-border);
+  margin-bottom: 8px;
+}
+
+.admin-file-input {
+  font-size: 11px;
+  max-width: 280px;
+}
+
+.admin-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.admin-gallery-item {
+  border: 1px solid var(--rm-border);
+  background-color: #FAFAFA;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-gallery-item.is-primary {
+  border-color: var(--rm-primary);
+  background-color: #F2F7FC;
+}
+
+.admin-gallery-thumb-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.admin-gallery-thumb {
+  width: 82px;
+  height: 60px;
+  object-fit: cover;
+  border: 1px solid var(--rm-border);
+  background-color: #FFFFFF;
+}
+
+.admin-gallery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.admin-kv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.admin-kv-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-prod-table-thumb {
+  width: 44px;
+  height: 34px;
+  object-fit: cover;
+  border: 1px solid var(--rm-border);
+  background-color: #FFFFFF;
+  vertical-align: middle;
+}
+
+.admin-two-col-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.admin-qr-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.admin-qr-preview img {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  border: 1px solid var(--rm-border);
+  background-color: #FFFFFF;
+  padding: 3px;
+}
+
+.admin-crypto-table-qr {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border: 1px solid var(--rm-border);
+  background-color: #FFFFFF;
+  padding: 2px;
+  vertical-align: middle;
+}
+
 @media (max-width: 780px) {
   .admin-summary-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .admin-detail-grid {
+  .admin-detail-grid,
+  .admin-two-col-inputs,
+  .admin-kv-row {
     grid-template-columns: 1fr;
   }
 }

@@ -532,6 +532,32 @@
   color: var(--rm-dark-blue);
 }
 
+.seller-direct-links {
+  padding: 6px 8px;
+  border-top: 1px solid var(--rm-border);
+  background-color: #FFFFFF;
+}
+
+.seller-direct-links-title {
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--rm-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.seller-contact-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.seller-contact-note {
+  margin-top: 5px;
+  font-size: 10px;
+  color: var(--rm-text-muted);
+}
+
 .product-subgrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -983,6 +1009,34 @@
 .pay-status-refunded {
   color: var(--rm-primary);
   font-weight: bold;
+}
+
+.cs-unavailable-notice {
+  background-color: #FFF8E6;
+  border: 1px solid #C89B3C;
+  color: #5C3D00;
+  padding: 9px 11px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.crypto-qr-preview {
+  display: block;
+  width: 170px;
+  height: 170px;
+  object-fit: contain;
+  border: 1px solid var(--rm-border);
+  background-color: #FFFFFF;
+  padding: 6px;
+}
+
+.crypto-instructions-box {
+  background-color: #F7F9FC;
+  border: 1px solid var(--rm-border);
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 /* Responsive Adjustments */

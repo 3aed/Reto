@@ -4,11 +4,8 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import type { AppConfig } from './server/config.ts';
-import { loadConfig } from './server/config.ts';
-import type { DbConnection } from './server/db.ts';
-import { openDatabase, purgeExpiredAdminSessions, runMigrations } from './server/db.ts';
+import { getMissingSupabaseVars, isSupabaseConfigured, loadConfig } from './server/config.ts';
 import { securityHeadersMiddleware } from './server/security.ts';
-import { bootstrapInitialAdminFromEnv } from './server/provision-admin.ts';
 import { createPublicApiRouter } from './server/routes/public.ts';
 import { createAdminApiRouter, createPrivateAdminPageRouter } from './server/routes/admin.ts';
 
@@ -26,7 +23,6 @@ const PUBLIC_HTML_PAGES = new Set([
 
 export interface RetroMarketServerContext {
   app: express.Express;
-  db: DbConnection;
   config: AppConfig;
 }
 
@@ -34,10 +30,12 @@ export async function createRetroMarketApp(
   overrides?: Partial<AppConfig>
 ): Promise<RetroMarketServerContext> {
   const config: AppConfig = { ...loadConfig(), ...(overrides || {}) };
-  const db = openDatabase(config.databasePath);
-  runMigrations(db);
-  purgeExpiredAdminSessions(db);
-  await bootstrapInitialAdminFromEnv(db);
+
+  if (!isSupabaseConfigured(config)) {
+    console.warn(
+      `[RetroMarket] Supabase environment variables missing (${getMissingSupabaseVars(config).join(', ')}). Configure SUPABASE_URL and SUPABASE_ANON_KEY in .env.`
+    );
+  }
 
   const app = express();
   app.disable('x-powered-by');
@@ -59,8 +57,7 @@ export async function createRetroMarketApp(
       lower === '/admin-login.html' ||
       lower.startsWith('/private/') ||
       lower.startsWith('/server/') ||
-      lower.startsWith('/db/') ||
-      lower.startsWith('/data/') ||
+      lower.startsWith('/supabase/') ||
       lower.startsWith('/.env') ||
       lower === '/package.json' ||
       lower === '/server.ts'
@@ -71,15 +68,15 @@ export async function createRetroMarketApp(
     next();
   });
 
-  // Public Storefront & Guest APIs
-  app.use('/api', createPublicApiRouter(db, config));
+  // Public Storefront & Guest APIs (Supabase-backed)
+  app.use('/api', createPublicApiRouter(config));
 
-  // Protected Admin APIs (independently authenticated regardless of secret URL)
-  app.use('/api/admin', createAdminApiRouter(db, config));
+  // Protected Admin APIs (Supabase Auth + RLS-enforced)
+  app.use('/api/admin', createAdminApiRouter(config));
 
   // Private Admin Web Interface mounted exclusively at configured secret path
   if (config.adminSecretPath) {
-    app.use(`/${config.adminSecretPath}`, createPrivateAdminPageRouter(db, config));
+    app.use(`/${config.adminSecretPath}`, createPrivateAdminPageRouter(config));
   } else {
     console.warn(
       '[RetroMarket] ADMIN_SECRET_PATH is not configured (must be 8–80 alphanumeric/_/- chars). Private admin web interface is disabled until configured.'
@@ -127,7 +124,7 @@ export async function createRetroMarketApp(
     next();
   });
 
-  // 404 handler (never leaks internals)
+  // 404 handler
   app.use((req: Request, res: Response) => {
     if (req.path.startsWith('/api/')) {
       res.status(404).json({ error: 'API endpoint not found.' });
@@ -136,7 +133,7 @@ export async function createRetroMarketApp(
     res.status(404).type('text/plain').send('404 Not Found');
   });
 
-  // Generic error handler — never expose stack traces or secret details
+  // Generic error handler
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     const isSyntaxErr =
       err instanceof SyntaxError && 'status' in err && Number((err as { status?: number }).status) === 400;
@@ -154,7 +151,7 @@ export async function createRetroMarketApp(
     res.status(500).type('text/plain').send('Internal Server Error');
   });
 
-  return { app, db, config };
+  return { app, config };
 }
 
 const isEntryPoint =
@@ -166,7 +163,7 @@ if (isEntryPoint) {
     .then(({ app, config }) => {
       app.listen(config.port, '0.0.0.0', () => {
         console.log(
-          `[RetroMarket] Production backend listening on http://0.0.0.0:${config.port} (${config.nodeEnv})`
+          `[RetroMarket] Supabase-backed server listening on http://0.0.0.0:${config.port} (${config.nodeEnv})`
         );
       });
     })

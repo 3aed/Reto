@@ -84,12 +84,13 @@
         </section>
 
         <section class="panel">
-          <div class="panel-header"><span>Integration Status</span></div>
+          <div class="panel-header"><span>Backend Status</span></div>
           <table class="sidebar-stat-table">
             <tbody id="admin-integration-status-body">
+              <tr><td class="sidebar-stat-label">Supabase DB</td><td class="sidebar-stat-val">Checking...</td></tr>
+              <tr><td class="sidebar-stat-label">Storage Bucket</td><td class="sidebar-stat-val">Checking...</td></tr>
               <tr><td class="sidebar-stat-label">CyberSource</td><td class="sidebar-stat-val">Checking...</td></tr>
-              <tr><td class="sidebar-stat-label">SMTP Email</td><td class="sidebar-stat-val">Checking...</td></tr>
-              <tr><td class="sidebar-stat-label">Crypto Verifier</td><td class="sidebar-stat-val">Checking...</td></tr>
+              <tr><td class="sidebar-stat-label">Crypto Options</td><td class="sidebar-stat-val">Checking...</td></tr>
             </tbody>
           </table>
         </section>
@@ -128,7 +129,7 @@
               <div class="admin-stat-box admin-stat-box-highlight">
                 <div class="admin-stat-label">Pending Payments</div>
                 <div id="ov-stat-pending-payments" class="admin-stat-number">0</div>
-                <div class="admin-stat-sub">Pending &amp; Awaiting Verification</div>
+                <div class="admin-stat-sub">Pending &amp; Pending Verification</div>
               </div>
               <div class="admin-stat-box">
                 <div class="admin-stat-label">Customer Inquiries</div>
@@ -178,8 +179,12 @@
             </div>
             <form id="admin-product-form" novalidate>
               <input type="hidden" id="admin-prod-id" value="" />
+              <input type="file" id="admin-prod-replace-file" accept="image/jpeg,image/png,image/webp" class="is-hidden" />
               <table class="form-table">
                 <tbody>
+                  <tr>
+                    <td colspan="2" class="admin-form-subhead">1. Basic Information, Pricing &amp; Inventory</td>
+                  </tr>
                   <tr>
                     <th scope="row"><label for="admin-prod-name">Product Name <span class="form-required">*</span></label></th>
                     <td><input id="admin-prod-name" type="text" class="form-input" required /></td>
@@ -197,19 +202,20 @@
                     <td><input id="admin-prod-price" type="number" min="0" step="0.01" class="form-input" required /></td>
                   </tr>
                   <tr>
-                    <th scope="row"><label for="admin-prod-stock">Stock Quantity <span class="form-required">*</span></label></th>
-                    <td><input id="admin-prod-stock" type="number" min="0" step="1" value="1" class="form-input" required /></td>
+                    <th scope="row"><label for="admin-prod-stock">Stock &amp; Availability <span class="form-required">*</span></label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-prod-stock" type="number" min="0" step="1" value="1" class="form-input" placeholder="Stock quantity" required />
+                        <input id="admin-prod-availability" type="text" class="form-input" placeholder="e.g. In Stock, Limited Stock, Pre-Order (auto if blank)" />
+                      </div>
+                    </td>
                   </tr>
                   <tr>
                     <th scope="row"><label for="admin-prod-condition">Condition</label></th>
                     <td><input id="admin-prod-condition" type="text" class="form-input" value="Used - Tested" /></td>
                   </tr>
                   <tr>
-                    <th scope="row"><label for="admin-prod-shipping">Shipping Cost</label></th>
-                    <td><input id="admin-prod-shipping" type="number" min="0" step="0.01" value="0.00" class="form-input" /></td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Flags</th>
+                    <th scope="row">Status Flags</th>
                     <td>
                       <label class="admin-checkbox-inline"><input id="admin-prod-instock" type="checkbox" checked /><span>In Stock / Active</span></label>
                       <label class="admin-checkbox-inline"><input id="admin-prod-digital" type="checkbox" /><span>Digital Delivery (No Physical Shipping)</span></label>
@@ -217,18 +223,114 @@
                     </td>
                   </tr>
                   <tr>
-                    <th scope="row"><label for="admin-prod-image">Product Image</label></th>
+                    <th scope="row"><label for="admin-prod-description">Description <span class="form-required">*</span></label></th>
+                    <td><textarea id="admin-prod-description" class="form-textarea" rows="4" required></textarea></td>
+                  </tr>
+
+                  <tr>
+                    <td colspan="2" class="admin-form-subhead">2. Product Images (Supabase Storage: JPG, PNG, WebP &mdash; Max 5 MB Each)</td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-image-files">Upload Photos</label></th>
                     <td>
-                      <select id="admin-prod-image-preset" class="form-select"></select>
-                      <div class="admin-image-preview">
-                        <img id="admin-prod-image-preview" src="/assets/images/retro-keyboard.jpg" alt="Product preview" />
-                        <input id="admin-prod-image" type="text" class="form-input" value="assets/images/retro-keyboard.jpg" />
+                      <div class="admin-upload-bar">
+                        <input
+                          id="admin-prod-image-files"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                          class="admin-file-input"
+                        />
+                        <button type="button" id="admin-prod-upload-btn" class="btn btn-primary btn-compact">Upload Images</button>
+                        <span class="form-hint">Up to 12 images per product. First image is the primary storefront thumbnail.</span>
+                      </div>
+                      <div id="admin-prod-upload-status" class="inline-message" role="status" aria-live="polite"></div>
+                      <div id="admin-prod-gallery-list" class="admin-gallery-grid"></div>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td colspan="2" class="admin-form-subhead">3. Shipping &amp; Fulfillment Information</td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-shipping">Shipping Cost &amp; Method</label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-prod-shipping" type="number" min="0" step="0.01" value="0.00" class="form-input" placeholder="Shipping cost" />
+                        <input id="admin-prod-shipping-method" type="text" class="form-input" value="Standard Ground Shipping" placeholder="Shipping method" />
                       </div>
                     </td>
                   </tr>
                   <tr>
-                    <th scope="row"><label for="admin-prod-description">Description <span class="form-required">*</span></label></th>
-                    <td><textarea id="admin-prod-description" class="form-textarea" required></textarea></td>
+                    <th scope="row"><label for="admin-prod-shipping-handling">Handling Time &amp; Ships From</label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-prod-shipping-handling" type="text" class="form-input" value="Ships within 2 business days" placeholder="Handling time" />
+                        <input id="admin-prod-shipping-from" type="text" class="form-input" placeholder="Ships from (e.g. Chicago, IL)" />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-return-policy">Return Policy</label></th>
+                    <td><input id="admin-prod-return-policy" type="text" class="form-input" value="14-day return policy" /></td>
+                  </tr>
+
+                  <tr>
+                    <td colspan="2" class="admin-form-subhead">4. Technical Specifications &amp; Custom Product Attributes</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Product Specifications</th>
+                    <td>
+                      <div id="admin-prod-specs-list" class="admin-kv-list"></div>
+                      <button type="button" id="admin-add-spec-btn" class="btn btn-compact">+ Add Specification</button>
+                      <span class="form-hint">Example: Brand &rarr; IBM, Model &rarr; Model M, Year &rarr; 1994, Interface &rarr; PS/2</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Custom Attributes</th>
+                    <td>
+                      <div id="admin-prod-attrs-list" class="admin-kv-list"></div>
+                      <button type="button" id="admin-add-attr-btn" class="btn btn-compact">+ Add Custom Attribute</button>
+                      <span class="form-hint">Example: Color &rarr; Beige, Region &rarr; NTSC-U, SKU &rarr; RM-001, Accessories &rarr; Original Box</span>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td colspan="2" class="admin-form-subhead">5. Seller Contact Information &amp; Direct Links (Optional Override of Seller Defaults)</td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-contact-name">Contact Name &amp; Email</label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-prod-contact-name" type="text" class="form-input" placeholder="Contact display name (defaults to Seller)" />
+                        <input id="admin-prod-contact-email" type="email" class="form-input" placeholder="Direct seller email" />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-contact-whatsapp">WhatsApp &amp; Telegram</label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-prod-contact-whatsapp" type="text" class="form-input" placeholder="WhatsApp number (+15551234567) or https://wa.me/..." />
+                        <input id="admin-prod-contact-telegram" type="text" class="form-input" placeholder="Telegram (@username) or https://t.me/..." />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-contact-phone">Phone &amp; Other Contact Link</label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-prod-contact-phone" type="tel" class="form-input" placeholder="Phone number (optional)" />
+                        <input id="admin-prod-contact-other-label" type="text" class="form-input" placeholder="Other link label (e.g. Storefront, Discord)" />
+                      </div>
+                      <div class="admin-image-preview">
+                        <input id="admin-prod-contact-other-url" type="url" class="form-input" placeholder="Other contact URL (https://...)" />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-prod-contact-notes">Seller Contact Notes</label></th>
+                    <td><input id="admin-prod-contact-notes" type="text" class="form-input" placeholder="e.g. Available 9am-6pm EST, local pickup available" /></td>
                   </tr>
                 </tbody>
               </table>
@@ -251,6 +353,7 @@
               <thead>
                 <tr>
                   <th scope="col">ID</th>
+                  <th scope="col" class="col-center">Photo</th>
                   <th scope="col">Product Name</th>
                   <th scope="col">Category</th>
                   <th scope="col">Seller</th>
@@ -261,7 +364,7 @@
                 </tr>
               </thead>
               <tbody id="admin-products-body">
-                <tr><td colspan="8" class="text-center text-muted">Loading products...</td></tr>
+                <tr><td colspan="9" class="text-center text-muted">Loading products...</td></tr>
               </tbody>
             </table>
           </div>
@@ -351,6 +454,24 @@
                     <td><input id="admin-seller-response" type="text" class="form-input" value="Within 24 hours" /></td>
                   </tr>
                   <tr>
+                    <th scope="row"><label for="admin-seller-phone">Phone / WhatsApp</label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-seller-phone" type="tel" class="form-input" placeholder="Phone number (optional)" />
+                        <input id="admin-seller-whatsapp" type="text" class="form-input" placeholder="WhatsApp number or https://wa.me/..." />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-seller-telegram">Telegram / Other Link</label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-seller-telegram" type="text" class="form-input" placeholder="Telegram (@handle) or https://t.me/..." />
+                        <input id="admin-seller-other-url" type="url" class="form-input" placeholder="Other contact URL (https://...)" />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
                     <th scope="row">Status</th>
                     <td>
                       <label class="admin-checkbox-inline">
@@ -421,8 +542,8 @@
         <!-- SECTION 6: PAYMENTS -->
         <section id="admin-section-payments" class="panel admin-section" aria-labelledby="admin-payments-heading">
           <div class="panel-header panel-header-dark">
-            <span id="admin-payments-heading">Payment Records &amp; Verification</span>
-            <span class="panel-header-sub">CyberSource &amp; Crypto require cryptographic/on-chain settlement; Manual payments require documented verification reference</span>
+            <span id="admin-payments-heading">Payment Records &amp; Manual Verification</span>
+            <span class="panel-header-sub">Cryptocurrency &amp; Manual Seller payments remain Pending Verification until manually confirmed; CyberSource is unavailable</span>
           </div>
           <div id="admin-payment-review-drawer" class="admin-detail-drawer is-hidden"></div>
           <table class="data-table">
@@ -432,7 +553,7 @@
                 <th scope="col">Order Ref</th>
                 <th scope="col">Method</th>
                 <th scope="col" class="col-right">Amount</th>
-                <th scope="col">Tx / Provider Ref</th>
+                <th scope="col">Reference / Note</th>
                 <th scope="col">Status</th>
                 <th scope="col" class="col-center">Action</th>
               </tr>
@@ -456,12 +577,11 @@
                 <th scope="col">Guest</th>
                 <th scope="col">Order Ref</th>
                 <th scope="col">Message</th>
-                <th scope="col">Email Sent</th>
                 <th scope="col" class="col-right">Date (UTC)</th>
               </tr>
             </thead>
             <tbody id="admin-inquiries-body">
-              <tr><td colspan="7" class="text-center text-muted">Loading inquiries...</td></tr>
+              <tr><td colspan="6" class="text-center text-muted">Loading inquiries...</td></tr>
             </tbody>
           </table>
         </section>
@@ -490,79 +610,161 @@
           </table>
         </section>
 
-        <!-- SECTION 9: WEBSITE SETTINGS -->
-        <section id="admin-section-settings" class="panel admin-section" aria-labelledby="admin-settings-heading">
-          <div class="panel-header panel-header-dark">
-            <span id="admin-settings-heading">Website Settings &amp; Merchant Wallet Configuration</span>
+        <!-- SECTION 9: WEBSITE SETTINGS & MANUAL CRYPTOCURRENCY METHODS -->
+        <section id="admin-section-settings" class="admin-section" aria-labelledby="admin-settings-heading">
+          <div class="panel section-gap">
+            <div class="panel-header panel-header-dark">
+              <span id="admin-settings-heading">Website Settings</span>
+            </div>
+            <form id="admin-settings-form" novalidate>
+              <table class="form-table">
+                <tbody>
+                  <tr>
+                    <th scope="row"><label for="set-site-name">Site Name</label></th>
+                    <td><input id="set-site-name" type="text" class="form-input" required /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="set-site-tagline">Tagline</label></th>
+                    <td><input id="set-site-tagline" type="text" class="form-input" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="set-logo-path">Logo Path</label></th>
+                    <td><input id="set-logo-path" type="text" class="form-input" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="set-default-currency">Default Currency</label></th>
+                    <td>
+                      <select id="set-default-currency" class="form-select">
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (&euro;)</option>
+                        <option value="GBP">GBP (&pound;)</option>
+                        <option value="CAD">CAD (CA$)</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="set-support-email">Support Email</label></th>
+                    <td><input id="set-support-email" type="email" class="form-input" /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="set-seller-contact-info">Seller Contact Desk Info</label></th>
+                    <td><textarea id="set-seller-contact-info" class="form-textarea"></textarea></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="set-guest-notice">Guest Checkout Notice</label></th>
+                    <td><textarea id="set-guest-notice" class="form-textarea"></textarea></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="panel-footer">
+                <span class="text-muted">Saved to Supabase database and logged in audit trail.</span>
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+              </div>
+            </form>
+            <div class="panel-body">
+              <div id="admin-settings-msg" class="inline-message" role="status" aria-live="polite"></div>
+            </div>
           </div>
-          <form id="admin-settings-form" novalidate>
-            <table class="form-table">
-              <tbody>
+
+          <div class="panel section-gap">
+            <div class="panel-header panel-header-dark">
+              <span id="admin-crypto-form-heading">Add Manual Cryptocurrency Payment Option</span>
+              <span class="panel-header-sub">Displayed on checkout/payment page &mdash; verified manually by admin (no blockchain APIs)</span>
+            </div>
+            <form id="admin-crypto-form" novalidate>
+              <input type="hidden" id="admin-crypto-edit-id" value="" />
+              <table class="form-table">
+                <tbody>
+                  <tr>
+                    <th scope="row"><label for="admin-crypto-name">Cryptocurrency Name <span class="form-required">*</span></label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-crypto-name" type="text" class="form-input" placeholder="e.g. Bitcoin, Tether USD, Litecoin" required />
+                        <input id="admin-crypto-symbol" type="text" class="form-input" placeholder="Symbol (e.g. BTC, USDT, LTC)" required />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-crypto-network">Network <span class="form-required">*</span></label></th>
+                    <td>
+                      <div class="admin-two-col-inputs">
+                        <input id="admin-crypto-network" type="text" class="form-input" placeholder="e.g. Bitcoin Mainnet, TRC-20, ERC-20" required />
+                        <input id="admin-crypto-sort" type="number" step="1" value="0" class="form-input" placeholder="Display Order (0 = first)" />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-crypto-wallet">Wallet Address <span class="form-required">*</span></label></th>
+                    <td><input id="admin-crypto-wallet" type="text" class="form-input admin-wallet-input" placeholder="Paste destination wallet address" required /></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-crypto-qr-file">QR Code Image</label></th>
+                    <td>
+                      <div class="admin-upload-bar">
+                        <input
+                          id="admin-crypto-qr-file"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          class="admin-file-input"
+                        />
+                        <button type="button" id="admin-crypto-qr-upload-btn" class="btn btn-compact">Upload QR to Storage</button>
+                        <button type="button" id="admin-crypto-qr-clear-btn" class="btn btn-danger btn-compact is-hidden">Remove QR</button>
+                      </div>
+                      <input id="admin-crypto-qr-url" type="text" class="form-input" placeholder="Supabase Storage QR URL (or leave blank)" />
+                      <div id="admin-crypto-qr-preview" class="admin-qr-preview is-hidden">
+                        <img id="admin-crypto-qr-img" src="" alt="Wallet QR preview" />
+                        <span class="form-hint">QR code preview shown to customers on payment.html.</span>
+                      </div>
+                      <div id="admin-crypto-qr-status" class="inline-message" role="status" aria-live="polite"></div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><label for="admin-crypto-instructions">Payment Instructions</label></th>
+                    <td>
+                      <textarea id="admin-crypto-instructions" class="form-textarea" rows="3" placeholder="e.g. Send the exact USD equivalent on the listed network, then submit your confirmation reference below. Orders stay Pending Verification until confirmed."></textarea>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Visibility</th>
+                    <td>
+                      <label class="admin-checkbox-inline">
+                        <input id="admin-crypto-active" type="checkbox" checked />
+                        <span>Active (Visible to customers on payment page)</span>
+                      </label>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="panel-footer">
+                <button type="button" id="admin-crypto-cancel-btn" class="btn is-hidden">Cancel Edit</button>
+                <button type="submit" id="admin-crypto-submit-btn" class="btn btn-primary">Save Cryptocurrency Option</button>
+              </div>
+            </form>
+            <div class="panel-body">
+              <div id="admin-crypto-msg" class="inline-message" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span>Configured Manual Cryptocurrency Payment Methods</span>
+              <span class="panel-header-sub">Manual admin verification only</span>
+            </div>
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <th scope="row"><label for="set-site-name">Site Name</label></th>
-                  <td><input id="set-site-name" type="text" class="form-input" required /></td>
+                  <th scope="col">Cryptocurrency</th>
+                  <th scope="col">Network</th>
+                  <th scope="col">Wallet Address</th>
+                  <th scope="col" class="col-center">QR</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" class="col-center">Actions</th>
                 </tr>
-                <tr>
-                  <th scope="row"><label for="set-site-tagline">Tagline</label></th>
-                  <td><input id="set-site-tagline" type="text" class="form-input" /></td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-logo-path">Logo Path</label></th>
-                  <td><input id="set-logo-path" type="text" class="form-input" /></td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-default-currency">Default Currency</label></th>
-                  <td>
-                    <select id="set-default-currency" class="form-select">
-                      <option value="USD">USD ($)</option>
-                      <option value="EUR">EUR (&euro;)</option>
-                      <option value="GBP">GBP (&pound;)</option>
-                      <option value="CAD">CAD (CA$)</option>
-                    </select>
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-support-email">Support Email</label></th>
-                  <td><input id="set-support-email" type="email" class="form-input" /></td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-seller-contact-info">Seller Contact Desk Info</label></th>
-                  <td><textarea id="set-seller-contact-info" class="form-textarea"></textarea></td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-guest-notice">Guest Checkout Notice</label></th>
-                  <td><textarea id="set-guest-notice" class="form-textarea"></textarea></td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-btc-wallet">Merchant BTC Wallet Address</label></th>
-                  <td><input id="set-btc-wallet" type="text" class="form-input admin-wallet-input" placeholder="Leave blank if BTC is not enabled" /></td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-eth-wallet">Merchant ETH Wallet Address</label></th>
-                  <td><input id="set-eth-wallet" type="text" class="form-input admin-wallet-input" placeholder="Leave blank if ETH is not enabled" /></td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-usdt-wallet">Merchant USDT Wallet Address</label></th>
-                  <td><input id="set-usdt-wallet" type="text" class="form-input admin-wallet-input" placeholder="Leave blank if USDT is not enabled" /></td>
-                </tr>
-                <tr>
-                  <th scope="row"><label for="set-usdt-network">USDT Network</label></th>
-                  <td>
-                    <select id="set-usdt-network" class="form-select">
-                      <option value="ERC-20">ERC-20 (Ethereum)</option>
-                      <option value="TRC-20">TRC-20 (Tron)</option>
-                    </select>
-                  </td>
-                </tr>
+              </thead>
+              <tbody id="admin-crypto-methods-body">
+                <tr><td colspan="6" class="text-center text-muted">Loading cryptocurrency options...</td></tr>
               </tbody>
             </table>
-            <div class="panel-footer">
-              <span class="text-muted">Saved to server database and logged in audit trail.</span>
-              <button type="submit" class="btn btn-primary">Save Settings</button>
-            </div>
-          </form>
-          <div class="panel-body">
-            <div id="admin-settings-msg" class="inline-message" role="status" aria-live="polite"></div>
           </div>
         </section>
       </main>
