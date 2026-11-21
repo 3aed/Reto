@@ -39,6 +39,14 @@ import {
   timingSafeEqualStr,
   writeAuditLog,
 } from '../security.ts';
+import {
+  escapeTelegramHtml,
+  formatTelegramProductNotification,
+  formatTelegramSellerNotification,
+  isTelegramConfigured,
+  notifyTelegramAsync,
+  sendTelegramMessage,
+} from '../telegram.ts';
 
 const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB per image
 const MAX_UPLOAD_FILES_PER_REQUEST = 10;
@@ -512,6 +520,7 @@ export function createAdminApiRouter(cfg: AppConfig) {
         storageBucket: cfg.supabase.storageBucket,
         cybersourceStatus: 'Frontend Placeholder (Unavailable)',
         activeCryptoMethods: cryptoRows.filter((c) => c.active).length,
+        telegramBotConfigured: isTelegramConfigured(cfg),
       },
       auditLogs: auditRes.data || [],
     });
@@ -575,6 +584,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       ipAddress: getClientIp(req),
     });
 
+    notifyTelegramAsync(
+      cfg,
+      `<b>[NEW CATEGORY ADDED]</b>\n<b>ID:</b> #${escapeTelegramHtml(data.id)}\n<b>Name:</b> ${escapeTelegramHtml(name)}\n<b>Slug:</b> <code>${escapeTelegramHtml(slug)}</code>`,
+      `category:${data.id}`
+    );
+
     res.status(201).json({ category: data });
   });
 
@@ -620,6 +635,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       ipAddress: getClientIp(req),
     });
 
+    notifyTelegramAsync(
+      cfg,
+      `<b>[CATEGORY UPDATED]</b>\n<b>ID:</b> #${escapeTelegramHtml(id)}\n<b>Name:</b> ${escapeTelegramHtml(name)}\n<b>Slug:</b> <code>${escapeTelegramHtml(data.slug || '')}</code>`,
+      `category-update:${id}`
+    );
+
     res.json({ category: data });
   });
 
@@ -656,6 +677,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       targetId: String(id),
       ipAddress: getClientIp(req),
     });
+
+    notifyTelegramAsync(
+      cfg,
+      `<b>[CATEGORY DELETED]</b>\n<b>ID:</b> #${escapeTelegramHtml(id)}\n<b>By Admin:</b> ${escapeTelegramHtml(req.admin!.email)}`,
+      `category-delete:${id}`
+    );
 
     res.json({ ok: true });
   });
@@ -695,7 +722,8 @@ export function createAdminApiRouter(cfg: AppConfig) {
     const phoneRaw = String(body.phone || '').trim().slice(0, 40);
     const phone = phoneRaw && isValidPhone(phoneRaw) ? phoneRaw : '';
     const whatsapp = sanitizeWhatsAppContact(body.whatsapp).value;
-    const telegram = sanitizeTelegramContact(body.telegram).value;
+    const rawTelegram = String(body.telegram || '').trim();
+    const telegram = sanitizeTelegramContact(rawTelegram).value;
     const otherContactUrl = sanitizeExternalUrl(body.otherContactUrl);
 
     if (!/^[a-zA-Z0-9_.-]{3,50}$/.test(username)) {
@@ -704,8 +732,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       });
       return;
     }
-    if (!isValidEmail(email)) {
-      res.status(400).json({ error: 'Valid seller email address is required.' });
+    if (email && !isValidEmail(email)) {
+      res.status(400).json({ error: 'Please enter a valid seller email address or leave it blank.' });
+      return;
+    }
+    if (rawTelegram && !telegram) {
+      res.status(400).json({ error: 'Invalid Telegram handle or link. Use @username or https://t.me/username.' });
       return;
     }
 
@@ -738,9 +770,15 @@ export function createAdminApiRouter(cfg: AppConfig) {
       action: 'SELLER_CREATED',
       targetType: 'seller',
       targetId: String(data.id),
-      details: { username, email },
+      details: { username, email, telegram },
       ipAddress: getClientIp(req),
     });
+
+    notifyTelegramAsync(
+      cfg,
+      formatTelegramSellerNotification('NEW SELLER ADDED', data as Record<string, unknown>),
+      `seller:${data.id}`
+    );
 
     res.status(201).json({ seller: data });
   });
@@ -759,12 +797,17 @@ export function createAdminApiRouter(cfg: AppConfig) {
     const phoneRaw = String(body.phone || '').trim().slice(0, 40);
     const phone = phoneRaw && isValidPhone(phoneRaw) ? phoneRaw : '';
     const whatsapp = sanitizeWhatsAppContact(body.whatsapp).value;
-    const telegram = sanitizeTelegramContact(body.telegram).value;
+    const rawTelegram = String(body.telegram || '').trim();
+    const telegram = sanitizeTelegramContact(rawTelegram).value;
     const otherContactUrl = sanitizeExternalUrl(body.otherContactUrl);
     const active = body.active !== false && body.active !== 0;
 
-    if (!isValidEmail(email)) {
-      res.status(400).json({ error: 'Valid seller email address is required.' });
+    if (email && !isValidEmail(email)) {
+      res.status(400).json({ error: 'Please enter a valid seller email address or leave it blank.' });
+      return;
+    }
+    if (rawTelegram && !telegram) {
+      res.status(400).json({ error: 'Invalid Telegram handle or link. Use @username or https://t.me/username.' });
       return;
     }
 
@@ -805,6 +848,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       ipAddress: getClientIp(req),
     });
 
+    notifyTelegramAsync(
+      cfg,
+      formatTelegramSellerNotification('SELLER UPDATED', data as Record<string, unknown>),
+      `seller-update:${id}`
+    );
+
     res.json({ seller: data });
   });
 
@@ -843,6 +892,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       ipAddress: getClientIp(req),
     });
 
+    notifyTelegramAsync(
+      cfg,
+      `<b>[SELLER DELETED]</b>\n<b>Seller ID:</b> #${escapeTelegramHtml(id)}\n<b>By Admin:</b> ${escapeTelegramHtml(req.admin!.email)}`,
+      `seller-delete:${id}`
+    );
+
     res.json({ ok: true });
   });
 
@@ -862,6 +917,11 @@ export function createAdminApiRouter(cfg: AppConfig) {
         details: { ...summary },
         ipAddress: getClientIp(req),
       });
+      notifyTelegramAsync(
+        cfg,
+        `<b>[CATALOG SEEDED]</b>\n<b>Categories:</b> ${escapeTelegramHtml(summary.categoriesInserted)}\n<b>Sellers:</b> ${escapeTelegramHtml(summary.sellersInserted)}\n<b>Products:</b> ${escapeTelegramHtml(summary.productsInserted)}`,
+        'catalog-seed'
+      );
       res.status(201).json({ ok: true, ...summary });
     } catch (err) {
       res.status(500).json({
@@ -1108,7 +1168,7 @@ export function createAdminApiRouter(cfg: AppConfig) {
         seller_contact_json: sellerContact,
         featured,
       })
-      .select('*')
+      .select('*, categories(name), sellers(username)')
       .single();
 
     if (error) {
@@ -1125,6 +1185,17 @@ export function createAdminApiRouter(cfg: AppConfig) {
       details: { name, priceCents, stockQuantity, imageCount: gallery.length },
       ipAddress: getClientIp(req),
     });
+
+    const catRel = (data.categories || {}) as Record<string, unknown>;
+    const selRel = (data.sellers || {}) as Record<string, unknown>;
+    notifyTelegramAsync(
+      cfg,
+      formatTelegramProductNotification('NEW PRODUCT ADDED', data as Record<string, unknown>, {
+        categoryName: String(catRel.name || ''),
+        sellerUsername: String(selRel.username || ''),
+      }),
+      `product:${data.id}`
+    );
 
     res.status(201).json({ product: data });
   });
@@ -1212,7 +1283,7 @@ export function createAdminApiRouter(cfg: AppConfig) {
         featured,
       })
       .eq('id', id)
-      .select('*')
+      .select('*, categories(name), sellers(username)')
       .single();
 
     if (error) {
@@ -1233,6 +1304,17 @@ export function createAdminApiRouter(cfg: AppConfig) {
       details: { name, priceCents, stockQuantity, imageCount: gallery.length },
       ipAddress: getClientIp(req),
     });
+
+    const updCat = (updated.categories || {}) as Record<string, unknown>;
+    const updSel = (updated.sellers || {}) as Record<string, unknown>;
+    notifyTelegramAsync(
+      cfg,
+      formatTelegramProductNotification('PRODUCT UPDATED', updated as Record<string, unknown>, {
+        categoryName: String(updCat.name || ''),
+        sellerUsername: String(updSel.username || ''),
+      }),
+      `product-update:${id}`
+    );
 
     res.json({ product: updated });
   });
@@ -1273,6 +1355,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       targetId: String(id),
       ipAddress: getClientIp(req),
     });
+
+    notifyTelegramAsync(
+      cfg,
+      `<b>[PRODUCT DELETED]</b>\n<b>Product ID:</b> #${escapeTelegramHtml(id)}\n<b>By Admin:</b> ${escapeTelegramHtml(req.admin!.email)}`,
+      `product-delete:${id}`
+    );
 
     res.json({ ok: true });
   });
@@ -1343,6 +1431,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       details: { name, symbol, network },
       ipAddress: getClientIp(req),
     });
+
+    notifyTelegramAsync(
+      cfg,
+      `<b>[CRYPTO METHOD ADDED]</b>\n<b>Currency:</b> ${escapeTelegramHtml(name)} (${escapeTelegramHtml(symbol)})\n<b>Network:</b> ${escapeTelegramHtml(network)}\n<b>Active:</b> ${active ? 'Yes' : 'No'}`,
+      `crypto-create:${data.id}`
+    );
 
     res.status(201).json({ cryptoMethod: data });
   });
@@ -1418,6 +1512,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       ipAddress: getClientIp(req),
     });
 
+    notifyTelegramAsync(
+      cfg,
+      `<b>[CRYPTO METHOD UPDATED]</b>\n<b>ID:</b> #${escapeTelegramHtml(id)}\n<b>Currency:</b> ${escapeTelegramHtml(name)} (${escapeTelegramHtml(symbol)})\n<b>Network:</b> ${escapeTelegramHtml(network)}\n<b>Active:</b> ${active ? 'Yes' : 'No'}`,
+      `crypto-update:${id}`
+    );
+
     res.json({ cryptoMethod: data });
   });
 
@@ -1458,6 +1558,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       targetId: String(id),
       ipAddress: getClientIp(req),
     });
+
+    notifyTelegramAsync(
+      cfg,
+      `<b>[CRYPTO METHOD DELETED]</b>\n<b>ID:</b> #${escapeTelegramHtml(id)}\n<b>By Admin:</b> ${escapeTelegramHtml(req.admin!.email)}`,
+      `crypto-delete:${id}`
+    );
 
     res.json({ ok: true });
   });
@@ -1542,6 +1648,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       details: { orderStatus, paymentStatus: paymentStatus || data.payment_status },
       ipAddress: getClientIp(req),
     });
+
+    notifyTelegramAsync(
+      cfg,
+      `<b>[ORDER STATUS UPDATED]</b>\n<b>Order #:</b> <code>${escapeTelegramHtml(data.order_number)}</code>\n<b>Order Status:</b> ${escapeTelegramHtml(orderStatus)}\n<b>Payment Status:</b> ${escapeTelegramHtml(paymentStatus || data.payment_status)}`,
+      `order-status:${data.order_number}`
+    );
 
     res.json({ order: data });
   });
@@ -1649,6 +1761,12 @@ export function createAdminApiRouter(cfg: AppConfig) {
       ipAddress: getClientIp(req),
     });
 
+    notifyTelegramAsync(
+      cfg,
+      `<b>[PAYMENT STATUS UPDATED]</b>\n<b>Payment Ref:</b> <code>${escapeTelegramHtml(payment.payment_ref)}</code>\n<b>Method:</b> ${escapeTelegramHtml(payment.method)}\n<b>Status:</b> ${escapeTelegramHtml(payment.status)} → <b>${escapeTelegramHtml(status)}</b>\n<b>Note:</b> ${escapeTelegramHtml(reviewNote || '—')}`,
+      `payment:${payment.payment_ref}`
+    );
+
     res.json({ payment: updated });
   });
 
@@ -1750,7 +1868,95 @@ export function createAdminApiRouter(cfg: AppConfig) {
       ipAddress: getClientIp(req),
     });
 
+    notifyTelegramAsync(
+      cfg,
+      `<b>[WEBSITE SETTINGS UPDATED]</b>\n<b>Site Name:</b> ${escapeTelegramHtml(siteName || 'RetroMarket')}\n<b>Default Currency:</b> ${escapeTelegramHtml(defaultCurrency)}\n<b>By Admin:</b> ${escapeTelegramHtml(req.admin!.email)}`,
+      'settings-update'
+    );
+
     res.json({ settings: data });
+  });
+
+  /* ------------------------------------------------------------------------
+     TELEGRAM BOT QA TEST & FULL CATALOG/SELLERS SYNC (SERVER-SIDE ONLY)
+     ------------------------------------------------------------------------ */
+  router.post('/telegram/test', async (req: AdminRequest, res: Response) => {
+    const result = await sendTelegramMessage(
+      cfg,
+      `<b>[QA TEST MESSAGE]</b>\nRetroMarket server-side Telegram Bot connection is active.\n<b>Admin:</b> ${escapeTelegramHtml(req.admin!.email)}\n<b>Timestamp (UTC):</b> ${escapeTelegramHtml(new Date().toISOString())}`
+    );
+    if (!result.ok) {
+      res.status(400).json({ error: result.error || 'Failed to send Telegram test message.' });
+      return;
+    }
+    res.json({ ok: true, sentCount: result.sentCount, message: 'Test notification sent to Telegram.' });
+  });
+
+  router.post('/telegram/sync-catalog', async (req: AdminRequest, res: Response) => {
+    if (!isTelegramConfigured(cfg)) {
+      res.status(400).json({
+        error: 'Telegram Bot is not configured on the server (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env).',
+      });
+      return;
+    }
+
+    const sb = req.supabase!;
+    const [{ data: sellers, error: selErr }, { data: products, error: prodErr }] = await Promise.all([
+      sb.from('sellers').select('*').order('id', { ascending: true }),
+      sb.from('products').select('*, categories(name), sellers(username)').order('id', { ascending: true }),
+    ]);
+
+    if (selErr || prodErr) {
+      res.status(500).json({ error: selErr?.message || prodErr?.message || 'Failed to read catalog.' });
+      return;
+    }
+
+    const sellerList = (sellers || []) as Record<string, unknown>[];
+    const productList = (products || []) as Record<string, unknown>[];
+
+    const summaryHeader = [
+      `<b>[QA FULL CATALOG & SELLERS EXPORT]</b>`,
+      `<b>Sellers:</b> ${sellerList.length}`,
+      `<b>Products:</b> ${productList.length}`,
+      `<b>Triggered by:</b> ${escapeTelegramHtml(req.admin!.email)}`,
+    ].join('\n');
+
+    const blocks: string[] = [summaryHeader];
+    if (sellerList.length > 0) {
+      blocks.push(
+        sellerList
+          .map((s) => formatTelegramSellerNotification('SELLER RECORD', s))
+          .join('\n\n')
+      );
+    }
+    if (productList.length > 0) {
+      blocks.push(
+        productList
+          .map((p) => {
+            const cat = (p.categories || {}) as Record<string, unknown>;
+            const sel = (p.sellers || {}) as Record<string, unknown>;
+            return formatTelegramProductNotification('PRODUCT RECORD', p, {
+              categoryName: String(cat.name || ''),
+              sellerUsername: String(sel.username || ''),
+            });
+          })
+          .join('\n\n')
+      );
+    }
+
+    const result = await sendTelegramMessage(cfg, blocks.join('\n\n'));
+    if (!result.ok) {
+      res.status(400).json({ error: result.error || 'Failed to sync catalog to Telegram.' });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      sellersCount: sellerList.length,
+      productsCount: productList.length,
+      sentCount: result.sentCount,
+      message: `Sent ${sellerList.length} seller(s) and ${productList.length} product(s) to Telegram.`,
+    });
   });
 
   return router;

@@ -98,6 +98,7 @@
               <tr><td class="sidebar-stat-label">Storage Bucket</td><td class="sidebar-stat-val">Checking...</td></tr>
               <tr><td class="sidebar-stat-label">CyberSource</td><td class="sidebar-stat-val">Checking...</td></tr>
               <tr><td class="sidebar-stat-label">Crypto Options</td><td class="sidebar-stat-val">Checking...</td></tr>
+              <tr><td class="sidebar-stat-label">Telegram Bot</td><td class="sidebar-stat-val">Checking...</td></tr>
             </tbody>
           </table>
         </section>
@@ -454,8 +455,11 @@
                     <td><input id="admin-seller-username" type="text" class="form-input" required /></td>
                   </tr>
                   <tr>
-                    <th scope="row"><label for="admin-seller-email">Contact Email <span class="form-required">*</span></label></th>
-                    <td><input id="admin-seller-email" type="email" class="form-input" required /></td>
+                    <th scope="row"><label for="admin-seller-email">Contact Email</label></th>
+                    <td>
+                      <input id="admin-seller-email" type="email" class="form-input" placeholder="Optional (e.g. seller@example.com)" />
+                      <span class="form-hint">Optional — sellers do not need an email if they link Telegram or another contact method.</span>
+                    </td>
                   </tr>
                   <tr>
                     <th scope="row"><label for="admin-seller-location">Location</label></th>
@@ -485,6 +489,7 @@
                         <input id="admin-seller-telegram" type="text" class="form-input" placeholder="Telegram (@handle) or https://t.me/..." />
                         <input id="admin-seller-other-url" type="url" class="form-input" placeholder="Other contact URL (https://...)" />
                       </div>
+                      <span class="form-hint">Link the seller's Telegram (@username or https://t.me/username) so buyers can contact them directly on Telegram.</span>
                     </td>
                   </tr>
                   <tr>
@@ -515,7 +520,7 @@
                 <thead>
                   <tr>
                     <th scope="col">Username</th>
-                    <th scope="col">Email</th>
+                    <th scope="col">Contact</th>
                     <th scope="col">Location</th>
                     <th scope="col">Specialty</th>
                     <th scope="col" class="col-right">Products</th>
@@ -690,6 +695,27 @@
             </form>
             <div class="panel-body">
               <div id="admin-settings-msg" class="inline-message" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="panel section-gap">
+            <div class="panel-header panel-header-dark">
+              <span>Telegram Bot Notifications (Server-Side QA Tools)</span>
+              <span class="panel-header-sub">Token &amp; Chat ID stored strictly in server .env</span>
+            </div>
+            <div class="panel-body">
+              <p>
+                <strong>Server Status:</strong>
+                <span id="admin-telegram-status-text" class="admin-status-badge">Checking...</span>
+              </p>
+              <p class="form-hint">
+                All new/updated products, sellers, categories, customer orders, manual crypto submissions, and site inquiries/messages are sent automatically from the backend server to your configured Telegram chat.
+              </p>
+              <div class="admin-toolbar-group">
+                <button type="button" id="admin-telegram-test-btn" class="btn btn-primary btn-compact">Send Test Message</button>
+                <button type="button" id="admin-telegram-sync-btn" class="btn btn-compact">Send All Current Products &amp; Sellers to Telegram</button>
+              </div>
+              <div id="admin-telegram-msg" class="inline-message" role="status" aria-live="polite"></div>
             </div>
           </div>
 

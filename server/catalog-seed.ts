@@ -702,15 +702,20 @@ export function buildStarterCatalogSnapshot() {
     };
   });
 
-  const publicSellers = sellers.map((s) => ({
-    id: s.id,
-    username: s.username,
-    location: s.location,
-    specialty: s.specialty,
-    responseTime: s.responseTime,
-    active: s.active,
-    productCount: s.productCount,
-  }));
+  const publicSellers = sellers.map((s) => {
+    const tgHandle = s.telegram.replace(/^@+/, '');
+    return {
+      id: s.id,
+      username: s.username,
+      location: s.location,
+      specialty: s.specialty,
+      responseTime: s.responseTime,
+      telegram: s.telegram,
+      telegramUrl: tgHandle ? `https://t.me/${tgHandle}` : '',
+      active: s.active,
+      productCount: s.productCount,
+    };
+  });
 
   return { categories, sellers: publicSellers, products };
 }

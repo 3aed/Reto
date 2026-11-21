@@ -33,6 +33,10 @@ export interface AppConfig {
     email: string;
     password: string;
   };
+  telegram: {
+    botToken: string;
+    chatIds: string[];
+  };
 }
 
 export function loadConfig(): AppConfig {
@@ -53,6 +57,12 @@ export function loadConfig(): AppConfig {
   const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const adminPassword = process.env.ADMIN_PASSWORD || '';
 
+  const telegramBotToken = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  const telegramChatIds = (process.env.TELEGRAM_CHAT_ID || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+
   return {
     nodeEnv,
     isProduction,
@@ -72,6 +82,10 @@ export function loadConfig(): AppConfig {
     adminBootstrap: {
       email: adminEmail,
       password: adminPassword,
+    },
+    telegram: {
+      botToken: telegramBotToken,
+      chatIds: telegramChatIds,
     },
   };
 }

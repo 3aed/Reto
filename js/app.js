@@ -665,15 +665,17 @@
         : '';
 
     const contact = item.sellerContact || {};
+    const telegramUrl = contact.telegramUrl || seller.telegramUrl || '';
+    const telegramLabel = contact.telegram || seller.telegram || 'Telegram';
     const directContactBtns = [];
+    if (telegramUrl) {
+      directContactBtns.push(
+        `<a href="${escapeHtml(telegramUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-compact">Telegram (${escapeHtml(telegramLabel)})</a>`
+      );
+    }
     if (contact.whatsappUrl) {
       directContactBtns.push(
         `<a href="${escapeHtml(contact.whatsappUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-compact">WhatsApp</a>`
-      );
-    }
-    if (contact.telegramUrl) {
-      directContactBtns.push(
-        `<a href="${escapeHtml(contact.telegramUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-compact">Telegram</a>`
       );
     }
     if (contact.email) {
@@ -720,6 +722,11 @@
                 <tr><td class="sidebar-stat-label">Location</td><td class="sidebar-stat-val">${escapeHtml(seller.location || 'Not specified')}</td></tr>
                 <tr><td class="sidebar-stat-label">Specialty</td><td class="sidebar-stat-val">${escapeHtml(seller.specialty || 'General')}</td></tr>
                 <tr><td class="sidebar-stat-label">Avg. Response</td><td class="sidebar-stat-val">${escapeHtml(seller.responseTime || 'Within 24 hours')}</td></tr>
+                ${
+                  telegramUrl
+                    ? `<tr><td class="sidebar-stat-label">Telegram</td><td class="sidebar-stat-val"><a href="${escapeHtml(telegramUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(telegramLabel)}</a></td></tr>`
+                    : ''
+                }
                 <tr><td class="sidebar-stat-label">Catalog Items</td><td class="sidebar-stat-val"><a href="marketplace.html?seller=${encodeURIComponent(seller.username)}">${Number(seller.listingCount || seller.productCount || 0)} active</a></td></tr>
               </tbody>
             </table>
@@ -763,6 +770,11 @@
               ${item.inStock ? 'Add to Cart' : 'Currently Out of Stock'}
             </button>
             <button type="button" id="buy-now-btn" class="btn" ${disabledAttr}>Buy Now</button>
+            ${
+              telegramUrl
+                ? `<a href="${escapeHtml(telegramUrl)}" target="_blank" rel="noopener noreferrer" class="btn">Contact on Telegram</a>`
+                : ''
+            }
             <button type="button" id="contact-seller-toggle" class="btn">Contact Seller</button>
             <a href="marketplace.html?cat=${encodeURIComponent(item.category)}" class="btn">More in ${escapeHtml(item.categoryName)}</a>
           </div>
@@ -797,6 +809,7 @@
     }
 
     const contactPanel = document.getElementById('contact-seller-panel');
+    const contactTelegramHint = document.getElementById('contact-seller-telegram-hint');
     const contactToggleBtn = document.getElementById('contact-seller-toggle');
     const contactSellerName = document.getElementById('contact-seller-name');
     const contactSubject = document.getElementById('contact-subject');
@@ -805,6 +818,22 @@
 
     if (contactSellerName) contactSellerName.textContent = seller.username;
     if (contactSubject) contactSubject.value = 'Inquiry regarding #' + item.id + ' — ' + item.name;
+    if (contactTelegramHint) {
+      if (telegramUrl) {
+        contactTelegramHint.classList.remove('is-hidden');
+        contactTelegramHint.innerHTML =
+          '<div class="notice-box"><strong>Direct Telegram Contact:</strong> Message <strong>' +
+          escapeHtml(seller.username) +
+          '</strong> directly on Telegram: <a href="' +
+          escapeHtml(telegramUrl) +
+          '" target="_blank" rel="noopener noreferrer" class="btn btn-compact">Open ' +
+          escapeHtml(telegramLabel) +
+          ' &raquo;</a></div>';
+      } else {
+        contactTelegramHint.classList.add('is-hidden');
+        contactTelegramHint.innerHTML = '';
+      }
+    }
     if (contactToggleBtn && contactPanel) {
       contactToggleBtn.addEventListener('click', () => {
         contactPanel.classList.toggle('is-open');
@@ -951,10 +980,37 @@
     }
     if (urlOrder && orderRefInput) orderRefInput.value = urlOrder;
 
+    const telegramRow = document.getElementById('contact-seller-telegram-row');
+    const telegramCell = document.getElementById('contact-seller-telegram-cell');
+    const syncSelectedSellerTelegram = () => {
+      if (!telegramRow || !telegramCell || !sellerSelect) return;
+      const selectedUsername = sellerSelect.value;
+      const sel = SELLERS.find((s) => s.username.toLowerCase() === selectedUsername.toLowerCase());
+      if (sel && sel.telegramUrl) {
+        telegramRow.classList.remove('is-hidden');
+        telegramCell.innerHTML =
+          '<a href="' +
+          escapeHtml(sel.telegramUrl) +
+          '" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-compact">Message ' +
+          escapeHtml(sel.username) +
+          ' on Telegram (' +
+          escapeHtml(sel.telegram || 't.me') +
+          ') &raquo;</a>';
+      } else {
+        telegramRow.classList.add('is-hidden');
+        telegramCell.innerHTML = '';
+      }
+    };
+
+    if (sellerSelect) {
+      sellerSelect.addEventListener('change', syncSelectedSellerTelegram);
+    }
+    syncSelectedSellerTelegram();
+
     if (directoryBody) {
       if (SELLERS.length === 0) {
         directoryBody.innerHTML =
-          '<tr><td colspan="5" class="text-center text-muted">No active sellers are currently listed in the directory.</td></tr>';
+          '<tr><td colspan="6" class="text-center text-muted">No active sellers are currently listed in the directory.</td></tr>';
       } else {
         directoryBody.innerHTML = SELLERS.map(
           (s) => `
@@ -963,6 +1019,11 @@
             <td data-label="Specialty">${escapeHtml(s.specialty || 'General')}</td>
             <td data-label="Location">${escapeHtml(s.location || 'Not specified')}</td>
             <td data-label="Avg. Response">${escapeHtml(s.responseTime || 'Within 24 hours')}</td>
+            <td data-label="Telegram">${
+              s.telegramUrl
+                ? `<a href="${escapeHtml(s.telegramUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-compact">${escapeHtml(s.telegram || 'Telegram')}</a>`
+                : '<span class="text-muted">Not linked</span>'
+            }</td>
             <td data-label="Action" class="col-center"><a href="contact.html?seller=${encodeURIComponent(s.username)}" class="btn btn-compact">Select Seller</a></td>
           </tr>`
         ).join('');

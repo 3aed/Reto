@@ -342,7 +342,21 @@
         '</td></tr>' +
         '<tr><td class="sidebar-stat-label">Crypto Options</td><td class="sidebar-stat-val">' +
         escapeHtml(String(i.activeCryptoMethods ?? 0)) +
-        ' active</td></tr>';
+        ' active</td></tr>' +
+        '<tr><td class="sidebar-stat-label">Telegram Bot</td><td class="sidebar-stat-val">' +
+        (i.telegramBotConfigured ? 'Configured (.env)' : 'Not Configured') +
+        '</td></tr>';
+
+      const tgStatusEl = document.getElementById('admin-telegram-status-text');
+      if (tgStatusEl) {
+        if (i.telegramBotConfigured) {
+          tgStatusEl.textContent = 'Configured (Server .env)';
+          tgStatusEl.className = 'admin-status-badge badge-active';
+        } else {
+          tgStatusEl.textContent = 'Not Configured — Configure server Telegram Bot credentials in .env';
+          tgStatusEl.className = 'admin-status-badge badge-inactive';
+        }
+      }
     }
 
     const recentBody = document.getElementById('ov-recent-audit-body');
@@ -476,7 +490,7 @@
         (s) => `
         <tr>
           <td data-label="Seller"><strong>${escapeHtml(s.username)}</strong></td>
-          <td data-label="Contact">${escapeHtml(s.email)}${s.whatsapp ? '<div class="listing-meta-row">WA: ' + escapeHtml(s.whatsapp) + '</div>' : ''}${s.telegram ? '<div class="listing-meta-row">TG: ' + escapeHtml(s.telegram) + '</div>' : ''}</td>
+          <td data-label="Contact">${s.email ? escapeHtml(s.email) : '<span class="text-muted">No email</span>'}${s.telegram ? '<div class="listing-meta-row">TG: ' + escapeHtml(s.telegram) + '</div>' : ''}${s.whatsapp ? '<div class="listing-meta-row">WA: ' + escapeHtml(s.whatsapp) + '</div>' : ''}</td>
           <td data-label="Location">${escapeHtml(s.location || '')}</td>
           <td data-label="Specialty">${escapeHtml(s.specialty || '')}</td>
           <td data-label="Products" class="col-right num">${Number(s.product_count || 0)}</td>
@@ -496,7 +510,7 @@
         document.getElementById('admin-seller-edit-id').value = String(sel.id);
         document.getElementById('admin-seller-username').value = sel.username;
         document.getElementById('admin-seller-username').disabled = true;
-        document.getElementById('admin-seller-email').value = sel.email;
+        document.getElementById('admin-seller-email').value = sel.email || '';
         document.getElementById('admin-seller-location').value = sel.location || '';
         document.getElementById('admin-seller-specialty').value = sel.specialty || '';
         document.getElementById('admin-seller-response').value = sel.response_time || '';
@@ -1344,6 +1358,40 @@
         await refreshAll();
       } catch (err) {
         showMessage('admin-settings-msg', err.message, true);
+      }
+    });
+
+    // Telegram Bot QA Tools (Server-side only — token & chat ID live strictly in server .env)
+    const tgTestBtn = document.getElementById('admin-telegram-test-btn');
+    const tgSyncBtn = document.getElementById('admin-telegram-sync-btn');
+
+    tgTestBtn?.addEventListener('click', async () => {
+      tgTestBtn.disabled = true;
+      showMessage('admin-telegram-msg', 'Sending test message via server Telegram Bot...', false);
+      try {
+        const res = await api('/api/admin/telegram/test', { method: 'POST' });
+        showMessage('admin-telegram-msg', res.message || 'Test notification sent to Telegram.', false);
+      } catch (err) {
+        showMessage('admin-telegram-msg', err.message, true);
+      } finally {
+        tgTestBtn.disabled = false;
+      }
+    });
+
+    tgSyncBtn?.addEventListener('click', async () => {
+      tgSyncBtn.disabled = true;
+      showMessage('admin-telegram-msg', 'Sending all current sellers and products to Telegram...', false);
+      try {
+        const res = await api('/api/admin/telegram/sync-catalog', { method: 'POST' });
+        showMessage(
+          'admin-telegram-msg',
+          res.message || 'All current products and sellers sent to Telegram.',
+          false
+        );
+      } catch (err) {
+        showMessage('admin-telegram-msg', err.message, true);
+      } finally {
+        tgSyncBtn.disabled = false;
       }
     });
 

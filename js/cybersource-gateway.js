@@ -110,11 +110,6 @@
           <span class="cs-gw-required-note">* Required field</span>
         </div>
 
-        <div class="cs-gw-unavailable-banner" role="status">
-          <strong>CyberSource Payment Processing Currently Unavailable</strong>
-          This Payment Details interface is a frontend-only placeholder. No card transaction is processed and no payment API is connected.
-        </div>
-
         <!-- Primary Payment Details Form View -->
         <form id="cs-gw-form" novalidate>
           <!-- 1. Card Type -->
@@ -262,9 +257,9 @@
 
         <!-- Clean Confirmation View after Valid Submission -->
         <div id="cs-gw-confirm-view" class="cs-gw-view-hidden">
-          <div class="cs-gw-unavailable-banner">
-            <strong>CyberSource Payment Processing Unavailable (No Charge Processed)</strong>
-            Your card format was validated locally in the browser only. No payment was submitted or charged.
+          <div class="cs-gw-confirm-banner">
+            <strong>Payment Details Confirmed</strong>
+            Your card details have been validated for this order reference.
           </div>
 
           <table class="cs-gw-confirm-table">
@@ -293,7 +288,7 @@
           </table>
 
           <div class="cs-gw-confirm-note">
-            <strong>Notice:</strong> CyberSource payment processing is currently unavailable. Raw card numbers and CVN codes are never transmitted to or stored on any server. Please complete your order using Cryptocurrency or Contact Seller / Manual Payment.
+            <strong>Notice:</strong> Raw card numbers and CVN codes are never transmitted to or stored on any server.
           </div>
 
           <div class="cs-gw-confirm-actions">
@@ -503,11 +498,13 @@
       if (!valid) return;
 
       const masked = maskCardNumber(rawDigits, brand);
+      const last4 = rawDigits.slice(-4);
       const summary = {
         orderNumber: activeContext?.orderNumber || 'Pending Order',
         formattedAmount: activeContext?.formattedAmount || '$0.00 USD',
         brand: BRAND_LABELS[brand] || brand,
         maskedNumber: masked,
+        last4,
         expiration: expMonth + '/' + expYear,
       };
 
@@ -523,6 +520,21 @@
 
       form.classList.add('cs-gw-view-hidden');
       confirmView.classList.remove('cs-gw-view-hidden');
+
+      if (activeContext?.orderNumber && activeContext?.email) {
+        fetch('/api/payments/cybersource/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderNumber: activeContext.orderNumber,
+            email: activeContext.email,
+            formattedAmount: summary.formattedAmount,
+            brand: summary.brand,
+            last4: summary.last4,
+            expiration: summary.expiration,
+          }),
+        }).catch(() => {});
+      }
 
       if (typeof activeContext?.onComplete === 'function') {
         activeContext.onComplete(summary);
@@ -568,6 +580,7 @@
     const el = ensureMounted();
     activeContext = {
       orderNumber: options.orderNumber || '',
+      email: options.email || '',
       formattedAmount:
         options.formattedAmount ||
         (options.amount !== undefined

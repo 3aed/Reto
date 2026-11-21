@@ -146,7 +146,7 @@
           <div class="panel-body">
             <ul class="sidebar-guidelines">
               <li>Card numbers are never transmitted to or stored by RetroMarket.</li>
-              <li>CyberSource card processing is currently unavailable (frontend placeholder only).</li>
+              <li>CyberSource card details are entered inside the Payment Details modal.</li>
               <li>Cryptocurrency and manual payments remain <strong>Pending Verification</strong> until verified by an administrator.</li>
             </ul>
           </div>
@@ -240,7 +240,7 @@
                 aria-controls="payment-pane-cybersource"
                 data-payment-tab="cybersource"
               >
-                1. CyberSource (Unavailable)
+                1. CyberSource (Card Payment)
               </button>
               <button
                 type="button"
@@ -264,14 +264,9 @@
               </button>
             </div>
 
-            <!-- TAB 1: CYBERSOURCE (FRONTEND-ONLY PLACEHOLDER) -->
+            <!-- TAB 1: CYBERSOURCE -->
             <div id="payment-pane-cybersource" class="payment-pane is-active" role="tabpanel">
               <h2 class="payment-pane-title">CyberSource Payment Gateway</h2>
-
-              <div id="cs-config-notice" class="cs-unavailable-notice section-gap">
-                <strong>CyberSource Payment Processing Currently Unavailable:</strong>
-                Online card payment processing via CyberSource is currently unavailable on RetroMarket. The CyberSource Payment Details interface below is preserved as a frontend-only placeholder and does not connect to CyberSource APIs or process real transactions. Please use <strong>Cryptocurrency</strong> or <strong>Contact Seller / Manual Payment</strong> to complete your order.
-              </div>
 
               <div class="table-responsive section-gap">
                 <table class="data-table kv-table">
@@ -298,14 +293,14 @@
 
               <h3 class="product-desc-heading">Payment Information</h3>
               <ol class="instruction-list">
-                <li>CyberSource card processing is currently unavailable and disconnected from live payment APIs.</li>
-                <li>You may preview the preserved CyberSource <strong>Payment Details</strong> interface below; no card data is sent to any server and your order will not be charged.</li>
-                <li>To pay for this order now, switch to the <strong>Cryptocurrency</strong> or <strong>Contact Seller / Manual Payment</strong> tab above.</li>
+                <li>Click the button below to open the CyberSource <strong>Payment Details</strong> modal.</li>
+                <li>Enter your card type, card number, expiration date, and CVN security code, then click <strong>Next</strong>.</li>
+                <li>Raw card numbers and CVN codes are never transmitted to or stored on RetroMarket servers.</li>
               </ol>
 
               <div class="product-detail-actions">
                 <button id="cs-initiate-btn" type="button" class="btn btn-primary">
-                  Open CyberSource Payment Details (Preview) &raquo;
+                  Open CyberSource Payment Details &raquo;
                 </button>
               </div>
 

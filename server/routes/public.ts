@@ -12,7 +12,15 @@ import {
   sanitizeImageUrl,
   sanitizeKeyValueMap,
   sanitizeSellerContact,
+  sanitizeTelegramContact,
 } from '../security.ts';
+import {
+  formatTelegramCryptoPaymentNotification,
+  formatTelegramCyberSourceNotification,
+  formatTelegramInquiryNotification,
+  formatTelegramOrderNotification,
+  notifyTelegramAsync,
+} from '../telegram.ts';
 
 function isMissingSchemaError(err: { code?: string; message?: string } | null | undefined): boolean {
   if (!err) return false;
@@ -240,7 +248,7 @@ export function createPublicApiRouter(cfg: AppConfig) {
         supabase.from('categories').select('id, slug, name, description').order('name', { ascending: true }),
         supabase
           .from('sellers')
-          .select('id, username, location, specialty, response_time, active')
+          .select('id, username, location, specialty, response_time, telegram, active')
           .eq('active', true)
           .order('username', { ascending: true }),
         supabase.from('products').select(PRODUCT_SELECT).order('created_at', { ascending: false }).order('id', { ascending: false }),
@@ -283,15 +291,20 @@ export function createPublicApiRouter(cfg: AppConfig) {
         description: String(c.description || ''),
         productCount: catCounts.get(Number(c.id)) || 0,
       }));
-      const sellers = sellerRows.map((s) => ({
-        id: Number(s.id),
-        username: String(s.username || ''),
-        location: String(s.location || ''),
-        specialty: String(s.specialty || ''),
-        responseTime: String(s.response_time || 'Within 24 hours'),
-        active: Boolean(s.active),
-        productCount: sellerCounts.get(Number(s.id)) || 0,
-      }));
+      const sellers = sellerRows.map((s) => {
+        const tg = sanitizeTelegramContact(s.telegram);
+        return {
+          id: Number(s.id),
+          username: String(s.username || ''),
+          location: String(s.location || ''),
+          specialty: String(s.specialty || ''),
+          responseTime: String(s.response_time || 'Within 24 hours'),
+          telegram: tg.value,
+          telegramUrl: tg.href,
+          active: Boolean(s.active),
+          productCount: sellerCounts.get(Number(s.id)) || 0,
+        };
+      });
 
       res.json({
         supabaseConfigured: true,
@@ -565,6 +578,12 @@ export function createPublicApiRouter(cfg: AppConfig) {
         return;
       }
 
+      notifyTelegramAsync(
+        cfg,
+        formatTelegramOrderNotification(data as Record<string, unknown>),
+        `order:${orderNumber}`
+      );
+
       res.status(201).json({ order: data });
     } catch {
       res.status(500).json({ error: 'Unable to complete checkout at this time.' });
@@ -658,6 +677,20 @@ export function createPublicApiRouter(cfg: AppConfig) {
         return;
       }
 
+      notifyTelegramAsync(
+        cfg,
+        formatTelegramCryptoPaymentNotification({
+          paymentRef,
+          orderNumber,
+          email,
+          cryptoMethodId,
+          txReference,
+          note,
+          order: data as Record<string, unknown>,
+        }),
+        `crypto:${paymentRef}`
+      );
+
       res.status(201).json({
         paymentRef,
         order: data,
@@ -667,6 +700,90 @@ export function createPublicApiRouter(cfg: AppConfig) {
     } catch {
       res.status(500).json({ error: 'Unable to submit cryptocurrency payment reference.' });
     }
+  });
+
+  /* ------------------------------------------------------------------------
+     POST /api/payments/cybersource/notify — QA Notification (Masked Summary Only)
+     Strictly rejects raw card numbers or CVN codes; forwards only order ref,
+     server-verified amount, card brand, masked last-4 digits, and expiration.
+     ------------------------------------------------------------------------ */
+  router.post('/payments/cybersource/notify', checkoutLimiter, async (req: Request, res: Response) => {
+    const body = (req.body || {}) as Record<string, unknown>;
+
+    if (
+      body.cardNumber !== undefined ||
+      body.pan !== undefined ||
+      body.cvn !== undefined ||
+      body.cvv !== undefined ||
+      body.cvc !== undefined
+    ) {
+      res.status(400).json({
+        error: 'Raw card numbers and CVN codes must never be transmitted to the server.',
+      });
+      return;
+    }
+
+    const orderNumber = String(body.orderNumber || '').trim().slice(0, 64);
+    const email = String(body.email || '').trim().toLowerCase();
+    const brand = String(body.brand || '').trim();
+    const last4 = String(body.last4 || '').trim();
+    const expiration = String(body.expiration || '').trim();
+    const fallbackAmount = String(body.formattedAmount || '').trim().slice(0, 40);
+
+    if (!orderNumber || !isValidEmail(email)) {
+      res.status(400).json({ error: 'Valid Order Reference ID and Email Address are required.' });
+      return;
+    }
+    if (!['Visa', 'Mastercard', 'Amex', 'Discover'].includes(brand)) {
+      res.status(400).json({ error: 'Invalid card brand.' });
+      return;
+    }
+    if (!/^\d{4}$/.test(last4)) {
+      res.status(400).json({ error: 'Only masked last 4 digits are permitted.' });
+      return;
+    }
+    if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(expiration)) {
+      res.status(400).json({ error: 'Valid expiration date (MM/YYYY) is required.' });
+      return;
+    }
+
+    let amountText = fallbackAmount || 'See order';
+
+    if (isSupabaseConfigured(cfg)) {
+      try {
+        const supabase = createPublicSupabaseClient(cfg);
+        const { data, error } = await supabase.rpc('lookup_guest_order', {
+          p_order_number: orderNumber,
+          p_email: email,
+        });
+        if (error || !data) {
+          res.status(404).json({ error: 'Order not found for that Reference ID and Email Address.' });
+          return;
+        }
+        const ord = data as Record<string, unknown>;
+        if (ord.total !== undefined) {
+          amountText = `$${Number(ord.total).toFixed(2)} ${String(ord.currency || 'USD')}`;
+        }
+      } catch {
+        res.status(500).json({ error: 'Unable to verify order details.' });
+        return;
+      }
+    }
+
+    notifyTelegramAsync(
+      cfg,
+      formatTelegramCyberSourceNotification({
+        orderNumber,
+        customerEmail: email,
+        amountText,
+        brand,
+        last4,
+        expiration,
+      }),
+      `cybersource-test:${orderNumber}`
+    );
+
+    res.status(200).json({ ok: true });
   });
 
   /* ------------------------------------------------------------------------
@@ -712,6 +829,20 @@ export function createPublicApiRouter(cfg: AppConfig) {
         res.status(400).json({ error: error.message || 'Could not record inquiry.' });
         return;
       }
+
+      notifyTelegramAsync(
+        cfg,
+        formatTelegramInquiryNotification({
+          inquiryRef,
+          recipient,
+          productId,
+          orderNumber,
+          guestName,
+          guestEmail,
+          message,
+        }),
+        `inquiry:${inquiryRef}`
+      );
 
       res.status(201).json({
         inquiryRef,

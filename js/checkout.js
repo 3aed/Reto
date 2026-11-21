@@ -96,6 +96,11 @@
       order.products && order.products.length > 0 && order.products[0].seller
         ? order.products[0].seller
         : 'RetroMarket Support';
+    const primarySellerObj =
+      window.RetroMarketData && window.RetroMarketData.getSellerByUsername
+        ? window.RetroMarketData.getSellerByUsername(primarySeller)
+        : null;
+    const primarySellerTelegramUrl = primarySellerObj?.telegramUrl || '';
     const shippingDisplay = order.customer.requiresShipping
       ? order.customer.shippingAddress + ', ' + order.customer.city + ', ' + order.customer.country
       : 'Digital Delivery — ' + order.customer.city + ', ' + order.customer.country;
@@ -176,6 +181,11 @@
 
         <div class="panel-footer">
           <div>
+            ${
+              primarySellerTelegramUrl
+                ? `<a href="${escapeHtml(primarySellerTelegramUrl)}" target="_blank" rel="noopener noreferrer" class="btn">Telegram Seller</a>`
+                : ''
+            }
             <a href="contact.html?order=${encodeURIComponent(order.orderNumber)}&amp;seller=${encodeURIComponent(primarySeller)}" class="btn">Contact Seller</a>
             <a href="marketplace.html" class="btn">Continue Shopping</a>
           </div>
@@ -361,6 +371,7 @@
             if (!window.RetroMarketCyberSourceGateway) return;
             window.RetroMarketCyberSourceGateway.open({
               orderNumber: data.order.orderNumber,
+              email: data.order.customer.email,
               formattedAmount:
                 formatPrice(data.order.total, data.order.currency) + ' ' + data.order.currency,
             });
@@ -728,7 +739,7 @@
       loadOrder(ord, em);
     });
 
-    // CyberSource Frontend-Only Placeholder Modal Trigger (Never connects to CyberSource APIs)
+    // CyberSource Payment Details Modal Trigger
     const csInitBtn = document.getElementById('cs-initiate-btn');
     const csFeedback = document.getElementById('cs-action-feedback');
     csInitBtn?.addEventListener('click', () => {
@@ -736,17 +747,18 @@
       if (window.RetroMarketCyberSourceGateway) {
         window.RetroMarketCyberSourceGateway.open({
           orderNumber: activeOrder.orderNumber,
+          email: activeEmail,
           formattedAmount:
             formatPrice(activeOrder.total, activeOrder.currency) + ' ' + activeOrder.currency,
           onComplete: (summary) => {
             if (csFeedback) {
               csFeedback.textContent =
-                'CyberSource payment processing is currently unavailable. Card format was checked locally (' +
+                'Card details validated (' +
                 summary.brand +
                 ' ' +
                 summary.maskedNumber +
-                '), no transaction was processed, and order status remains ' +
-                activeOrder.paymentStatus +
+                ') for Order ' +
+                activeOrder.orderNumber +
                 '.';
               csFeedback.className = 'inline-message is-visible';
             }
@@ -754,7 +766,7 @@
           onCancel: () => {
             if (csFeedback) {
               csFeedback.textContent =
-                'CyberSource preview closed. CyberSource payment processing is currently unavailable; please choose Cryptocurrency or Manual Payment.';
+                'Payment Details window closed. You can reopen it or select another payment method.';
               csFeedback.className = 'inline-message is-visible';
             }
           },

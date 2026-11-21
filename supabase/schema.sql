@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
 CREATE TABLE IF NOT EXISTS public.sellers (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,
-  email TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL DEFAULT '',
   location TEXT NOT NULL DEFAULT '',
   specialty TEXT NOT NULL DEFAULT '',
   response_time TEXT NOT NULL DEFAULT 'Within 24 hours',
@@ -75,6 +75,13 @@ CREATE TABLE IF NOT EXISTS public.sellers (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Allow multiple sellers without an email while still enforcing uniqueness for non-empty emails
+ALTER TABLE public.sellers DROP CONSTRAINT IF EXISTS sellers_email_key;
+ALTER TABLE public.sellers ALTER COLUMN email SET DEFAULT '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sellers_email_unique
+  ON public.sellers (LOWER(email))
+  WHERE email <> '';
 
 -- 4. Catalog Products
 CREATE TABLE IF NOT EXISTS public.products (
@@ -913,3 +920,6 @@ CREATE POLICY "Admins delete product images"
   ON storage.objects FOR DELETE
   TO authenticated
   USING (bucket_id = 'product-images' AND public.is_admin());
+
+-- Refresh PostgREST schema cache so API endpoints see newly created tables immediately
+NOTIFY pgrst, 'reload schema';

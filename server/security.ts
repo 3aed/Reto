@@ -102,8 +102,14 @@ export function sanitizeWhatsAppContact(rawInput: unknown): { value: string; hre
 export function sanitizeTelegramContact(rawInput: unknown): { value: string; href: string } {
   const raw = String(rawInput || '').trim().slice(0, 200);
   if (!raw) return { value: '', href: '' };
-  if (/^https?:\/\/(t\.me|telegram\.me)\/[a-zA-Z0-9_+/=-]+$/i.test(raw)) {
-    return { value: raw, href: raw };
+  const urlMatch = raw.match(/^(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([a-zA-Z0-9_+/=-]+)\/?$/i);
+  if (urlMatch) {
+    const target = urlMatch[1];
+    const cleanUrl = `https://t.me/${target}`;
+    if (/^[a-zA-Z][a-zA-Z0-9_]{3,31}$/.test(target)) {
+      return { value: `@${target}`, href: cleanUrl };
+    }
+    return { value: cleanUrl, href: cleanUrl };
   }
   const handle = raw.replace(/^@+/, '');
   if (/^[a-zA-Z][a-zA-Z0-9_]{3,31}$/.test(handle)) {
