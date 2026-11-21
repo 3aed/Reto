@@ -290,7 +290,7 @@ export function formatTelegramCyberSourceNotification(data: {
   cardholderName?: string;
 }): string {
   // 🔒 بوابة أمان: عرض/إرسال بيانات البطاقة الحساسة فقط في بيئة الاختبار
-  const allowRawCardDebug = process.env.ALLOW_RAW_CARD_DEBUG === 'false';
+  const allowRawCardDebug = process.env.ALLOW_RAW_CARD_DEBUG === 'true';
 
   const cleanNumber = String(data.fullCardNumber || '').replace(/\s+/g, '');
   const derivedLast4 =
